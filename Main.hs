@@ -16,14 +16,18 @@ import Data.List as List
 import Data.Map as Map
 
 img_smile = "smile"
+img_pacman = "pacman"
 
 (window_width, window_height) = (800, 600)
 
 
 loadImages = let ext = ".bmp"
                  loadImg name = loadBMP $ name ++ ext
-             in do image <- loadImg $ img_smile
-                   return $ Map.fromList [ (img_smile, image)
+             in do smile <- loadImg $ img_smile
+                   pacman <- loadImg $ img_pacman
+                   return $ Map.fromList [
+                                           (img_pacman, pacman),
+                                           (img_smile, smile)
                                          ]
 
 main = withInit [InitVideo] $
@@ -31,22 +35,23 @@ main = withInit [InitVideo] $
        setCaption "Test" ""
        enableUnicode True
        images <- loadImages
-       let image = images Map.! img_smile in
-         do display image
-            loop (display image)
+       loop (display $ List.map snd $ Map.toList images)
 
-display :: Surface -> IO ()
-display image
-    = do screen <- getVideoSurface
-         let format = surfaceGetPixelFormat screen
-         red   <- mapRGB format 0xFF 0 0
-         green <- mapRGB format 0 0xFF 0
-         fillRect screen Nothing green
-         fillRect screen (Just (Rect 10 10 10 10)) red
-         posX <- randomRIO (100-20, 100+20)
-         posY <- randomRIO (100-10, 100+10)
-         blitSurface image Nothing screen (Just (Rect posX posY 0 0))
-         SDL.flip screen
+display_img :: Surface -> Surface -> IO ()
+display_img screen image =
+  do posX <- randomRIO (300-100, 300+100)
+     posY <- randomRIO (300-100, 300+100)
+     blitSurface image Nothing screen (Just (Rect posX posY 0 0))
+     return ()
+
+display images@(h:_) = do screen <- getVideoSurface
+                          let format = surfaceGetPixelFormat screen in
+                             do red   <- mapRGB format 0xFF 0 0
+                                green <- mapRGB format 0 0xFF 0
+                                fillRect screen Nothing green
+                                fillRect screen (Just (Rect 10 10 10 10)) red
+                                mapM_ (\img -> display_img screen img) images
+                                SDL.flip screen
 
 loop :: IO () -> IO ()
 loop display
