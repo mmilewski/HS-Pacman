@@ -17,7 +17,7 @@ import Data.Map as Map
 
 img_smile = "smile"
 
-(width, height) = (800, 600)
+(window_width, window_height) = (800, 600)
 
 
 loadImages = let ext = ".bmp"
@@ -27,7 +27,7 @@ loadImages = let ext = ".bmp"
                                          ]
 
 main = withInit [InitVideo] $
-    do screen <- setVideoMode width height 16 [SWSurface]
+    do screen <- setVideoMode window_width window_height 16 [SWSurface]
        setCaption "Test" ""
        enableUnicode True
        images <- loadImages
