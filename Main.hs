@@ -21,6 +21,8 @@ img_pacman = "pacman"
 
 (window_width, window_height) = (800, 600)
 
+type Objects = [Float]
+
 loadImages :: IO (Map String Surface)
 loadImages = let ext = ".bmp"
                  loadImg name = loadBMP $ name ++ ext
@@ -44,7 +46,7 @@ displayObjects screen posx images
     = do blitSurface (List.head images)  Nothing screen (Just (Rect (round posx) 50 0 0) )
          return ()
 
-display :: [Float] -> Map String Surface -> IO ()
+display :: Objects -> Map String Surface -> IO ()
 display objects imagesMap =
   do let images = List.map snd $ Map.toList imagesMap
      screen <- getVideoSurface
@@ -66,12 +68,14 @@ handleQuitEvents
            KeyDown (Keysym _ _ ' ') -> return () -- display
            _ -> return ()
 
-updateObjects :: [Float] -> Float -> IO ([Float])
+updateObjects :: Objects -> Float -> IO (Objects)
 updateObjects objects dt
     = mapM updateObject objects
-      where updateObject obj = return $ ( if obj > (fromIntegral window_width) then 0 else obj + 20.0 * dt)
+      where updateObject obj = return $ if obj > fromIntegral window_width
+                                        then 0
+                                        else obj + 20.0 * dt
 
-loop :: Integer -> [Float] -> Map String Surface -> IO ()
+loop :: Integer -> Objects -> Map String Surface -> IO ()
 loop startTime objects images
     = do handleQuitEvents
          endTime <- getCPUTime
