@@ -1,0 +1,18 @@
+@ wyświetlanie okna
+@ wyświetlanie obrazka
+
+* wyświetlanie pacmana - 4 obrazki w zależności od kierunku ruchu
+* poruszanie pacamanem po planszy
+* kolizje pacamana z planszą
+
+* wyświetlanie potwora
+* kolizje potwora z planszą
+* potwór goni gracza
+
+* potwór może być w dwóch stanach: goni, ucieka
+* jak potwór ucieka, to ma mniejszą prędkość
+
+
+* main menu
+* splash
+* high score
