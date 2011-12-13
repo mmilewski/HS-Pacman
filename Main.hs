@@ -1,18 +1,9 @@
 module Main where
 
 import Graphics.UI.SDL as SDL
-
--- import Foreign
--- import Data.Typeable
--- import Data.Char
-
--- import System.Environment
 import System.Exit
 import System.Random
-
-import System.Posix as P  -- usleep
 import System.CPUTime
-
 import Data.List as List
 import Data.Map as Map
 
@@ -42,6 +33,15 @@ loadImages = let ext = ".bmp"
                                            (img_smile, smile)
                                          ]
 
+handleQuitEvents :: IO ()
+handleQuitEvents
+    = do event <- pollEvent
+         case event of
+           SDL.Quit -> exitWith ExitSuccess
+           KeyDown (Keysym _ _ 'q') -> exitWith ExitSuccess
+           KeyDown (Keysym _ _ ' ') -> return ()
+           _ -> return ()
+
 displayObjects :: Surface -> Float -> [Surface] -> IO ()
 displayObjects screen posx images
     = do blitSurface (List.head images)  Nothing screen (Just (Rect (round posx) 50 0 0) )
@@ -57,17 +57,7 @@ display objects imagesMap =
           fillRect screen Nothing green
           fillRect screen (Just (Rect 10 10 10 10)) red
           mapM_ (\obj -> displayObjects screen obj images) objects
-       -- mapM_ (\img -> display_img screen img) images
           SDL.flip screen
-
-handleQuitEvents :: IO ()
-handleQuitEvents
-    = do event <- pollEvent -- waitEvent
-         case event of
-           SDL.Quit -> exitWith ExitSuccess
-           KeyDown (Keysym _ _ 'q') -> exitWith ExitSuccess
-           KeyDown (Keysym _ _ ' ') -> return () -- display
-           _ -> return ()
 
 updateObjects :: Objects -> Float -> IO (Objects)
 updateObjects objects dt
@@ -80,7 +70,6 @@ loop :: Integer -> Objects -> SurfacesMap -> IO ()
 loop startTime objects images
     = do handleQuitEvents
          endTime <- getCPUTime
-         -- putStrLn $ "Time: " ++ show endTime
          let dt = (fromIntegral (endTime - startTime)) / (10^11)
          updatedObjects <- updateObjects objects dt
          display updatedObjects images
