@@ -22,16 +22,7 @@ img_pacman = "pacman"
 (window_width, window_height) = (800, 600)
 
 type Objects = [Float]
-
-loadImages :: IO (Map String Surface)
-loadImages = let ext = ".bmp"
-                 loadImg name = loadBMP $ name ++ ext
-             in do smile <- loadImg $ img_smile
-                   pacman <- loadImg $ img_pacman
-                   return $ Map.fromList [
-                                           (img_pacman, pacman),
-                                           (img_smile, smile)
-                                         ]
+type SurfacesMap = Map String Surface
 
 main = withInit [InitVideo] $
     do screen <- setVideoMode window_width window_height 16 [SWSurface]
@@ -41,12 +32,22 @@ main = withInit [InitVideo] $
        startTime <- getCPUTime
        loop startTime [50.0] images
 
+loadImages :: IO (SurfacesMap)
+loadImages = let ext = ".bmp"
+                 loadImg name = loadBMP $ name ++ ext
+             in do smile <- loadImg $ img_smile
+                   pacman <- loadImg $ img_pacman
+                   return $ Map.fromList [
+                                           (img_pacman, pacman),
+                                           (img_smile, smile)
+                                         ]
+
 displayObjects :: Surface -> Float -> [Surface] -> IO ()
 displayObjects screen posx images
     = do blitSurface (List.head images)  Nothing screen (Just (Rect (round posx) 50 0 0) )
          return ()
 
-display :: Objects -> Map String Surface -> IO ()
+display :: Objects -> SurfacesMap -> IO ()
 display objects imagesMap =
   do let images = List.map snd $ Map.toList imagesMap
      screen <- getVideoSurface
@@ -75,7 +76,7 @@ updateObjects objects dt
                                         then 0
                                         else obj + 20.0 * dt
 
-loop :: Integer -> Objects -> Map String Surface -> IO ()
+loop :: Integer -> Objects -> SurfacesMap -> IO ()
 loop startTime objects images
     = do handleQuitEvents
          endTime <- getCPUTime
