@@ -21,6 +21,7 @@ img_pacman = "pacman"
 
 (window_width, window_height) = (800, 600)
 
+loadImages :: IO (Map String Surface)
 loadImages = let ext = ".bmp"
                  loadImg name = loadBMP $ name ++ ext
              in do smile <- loadImg $ img_smile
