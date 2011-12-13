@@ -2,11 +2,11 @@ module Main where
 
 import Graphics.UI.SDL as SDL
 
-import Foreign
-import Data.Typeable
-import Data.Char
+-- import Foreign
+-- import Data.Typeable
+-- import Data.Char
 
-import System.Environment
+-- import System.Environment
 import System.Exit
 import System.Random
 
