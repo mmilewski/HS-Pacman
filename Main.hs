@@ -7,7 +7,8 @@ import System.CPUTime
 import Data.List as List
 import Data.Map as Map
 
-type Objects = [Float]
+type Object = Float
+type Objects = [Object]
 type SurfacesMap = Map String Surface
 
 (window_width, window_height) = (800, 600)
@@ -42,30 +43,34 @@ display objects imagesMap =
           mapM_ (\obj -> displayObjects screen obj images) objects
           SDL.flip screen
 
-updateObjects :: Objects -> Float -> IO (Objects)
-updateObjects objects dt
-    = mapM updateObject objects
-      where updateObject obj = return $ if obj > fromIntegral window_width
-                                        then 0
-                                        else obj + 20.0 * dt
+moveObjects :: Objects -> Float -> Objects
+moveObjects objects dt
+    = List.map updateObject objects
+      where updateObject obj = if obj > fromIntegral window_width then 0 else obj + 20.0 * dt
 
-handleQuitEvents :: IO ()
-handleQuitEvents
-    = do event <- pollEvent
-         case event of
-           SDL.Quit -> exitWith ExitSuccess
-           KeyDown (Keysym _ _ 'q') -> exitWith ExitSuccess
-           KeyDown (Keysym _ _ ' ') -> return ()
-           _ -> return ()
+data GameData = GameData { objects :: Objects,
+                           pacman :: Object
+                         } deriving (Show)
 
-loop :: Integer -> Objects -> SurfacesMap -> IO ()
-loop startTime objects images
-    = do handleQuitEvents
-         endTime <- getCPUTime
+handleEvent dt NoEvent gd = return gd
+handleEvent dt (KeyDown (Keysym SDLK_RIGHT _ _)) (GameData objs pacman) = return $ GameData objs (pacman + 40*dt)
+handleEvent dt (KeyDown (Keysym SDLK_LEFT  _ _)) (GameData objs pacman) = return $ GameData objs (pacman - 40*dt)
+handleEvent dt (KeyDown (Keysym _ _ 'q')) gd = exitWith ExitSuccess
+handleEvent dt SDL.Quit gd = exitWith ExitSuccess
+handleEvent dt _ gd = return gd
+
+loop :: Integer -> GameData -> SurfacesMap -> IO ()
+loop startTime gameData images
+    = do endTime <- getCPUTime
          let dt = (fromIntegral (endTime - startTime)) / (10^11)
-         updatedObjects <- updateObjects objects dt
-         display updatedObjects images
-         loop endTime updatedObjects images
+
+         event <- pollEvent
+         (GameData objects pacman) <- handleEvent dt event gameData
+         let updatedObjects = moveObjects objects dt
+
+         display (pacman : updatedObjects) images
+
+         loop endTime (GameData updatedObjects pacman) images
 
 main = withInit [InitVideo] $
     do screen <- setVideoMode window_width window_height 16 [SWSurface]
@@ -73,4 +78,4 @@ main = withInit [InitVideo] $
        enableUnicode True
        images <- loadImages
        startTime <- getCPUTime
-       loop startTime [50.0] images
+       loop startTime (GameData [50.0] 31.415) images
