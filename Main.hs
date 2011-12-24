@@ -7,21 +7,13 @@ import System.CPUTime
 import Data.List as List
 import Data.Map as Map
 
-img_smile = "smile"
-img_pacman = "pacman"
-
-(window_width, window_height) = (800, 600)
-
 type Objects = [Float]
 type SurfacesMap = Map String Surface
 
-main = withInit [InitVideo] $
-    do screen <- setVideoMode window_width window_height 16 [SWSurface]
-       setCaption "HS-Pacman" ""
-       enableUnicode True
-       images <- loadImages
-       startTime <- getCPUTime
-       loop startTime [50.0] images
+(window_width, window_height) = (800, 600)
+
+img_smile = "smile"
+img_pacman = "pacman"
 
 loadImages :: IO (SurfacesMap)
 loadImages = let ext = ".bmp"
@@ -33,18 +25,9 @@ loadImages = let ext = ".bmp"
                                            (img_smile, smile)
                                          ]
 
-handleQuitEvents :: IO ()
-handleQuitEvents
-    = do event <- pollEvent
-         case event of
-           SDL.Quit -> exitWith ExitSuccess
-           KeyDown (Keysym _ _ 'q') -> exitWith ExitSuccess
-           KeyDown (Keysym _ _ ' ') -> return ()
-           _ -> return ()
-
 displayObjects :: Surface -> Float -> [Surface] -> IO ()
 displayObjects screen posx images
-    = do blitSurface (List.head images)  Nothing screen (Just (Rect (round posx) 50 0 0) )
+    = do blitSurface (List.head images)  Nothing screen (Just $ Rect (round posx) 50 0 0 )
          return ()
 
 display :: Objects -> SurfacesMap -> IO ()
@@ -55,7 +38,7 @@ display objects imagesMap =
        do red   <- mapRGB format 0xFF 0 0
           green <- mapRGB format 0 0xFF 0
           fillRect screen Nothing green
-          fillRect screen (Just (Rect 10 10 10 10)) red
+          fillRect screen (Just $ Rect 10 10 10 10) red
           mapM_ (\obj -> displayObjects screen obj images) objects
           SDL.flip screen
 
@@ -66,6 +49,15 @@ updateObjects objects dt
                                         then 0
                                         else obj + 20.0 * dt
 
+handleQuitEvents :: IO ()
+handleQuitEvents
+    = do event <- pollEvent
+         case event of
+           SDL.Quit -> exitWith ExitSuccess
+           KeyDown (Keysym _ _ 'q') -> exitWith ExitSuccess
+           KeyDown (Keysym _ _ ' ') -> return ()
+           _ -> return ()
+
 loop :: Integer -> Objects -> SurfacesMap -> IO ()
 loop startTime objects images
     = do handleQuitEvents
@@ -74,3 +66,11 @@ loop startTime objects images
          updatedObjects <- updateObjects objects dt
          display updatedObjects images
          loop endTime updatedObjects images
+
+main = withInit [InitVideo] $
+    do screen <- setVideoMode window_width window_height 16 [SWSurface]
+       setCaption "HS-Pacman" ""
+       enableUnicode True
+       images <- loadImages
+       startTime <- getCPUTime
+       loop startTime [50.0] images
