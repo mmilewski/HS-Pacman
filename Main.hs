@@ -10,6 +10,8 @@ import Data.Map as Map
 type Object = Float
 type Objects = [Object]
 type SurfacesMap = Map String Surface
+type TimeDelta = Float
+type CpuTime = Integer
 
 (window_width, window_height) = (800, 600)
 
@@ -43,7 +45,7 @@ display objects imagesMap =
           mapM_ (\obj -> displayObjects screen obj images) objects
           SDL.flip screen
 
-moveObjects :: Objects -> Float -> Objects
+moveObjects :: Objects -> TimeDelta -> Objects
 moveObjects objects dt
     = List.map updateObject objects
       where updateObject obj = if obj > fromIntegral window_width then 0 else obj + 20.0 * dt
@@ -59,7 +61,7 @@ handleEvent dt (KeyDown (Keysym _ _ 'q')) gd = exitWith ExitSuccess
 handleEvent dt SDL.Quit gd = exitWith ExitSuccess
 handleEvent dt _ gd = return gd
 
-loop :: Integer -> GameData -> SurfacesMap -> IO ()
+loop :: CpuTime -> GameData -> SurfacesMap -> IO ()
 loop startTime gameData images
     = do endTime <- getCPUTime
          let dt = (fromIntegral (endTime - startTime)) / (10^11)
