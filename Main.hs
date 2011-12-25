@@ -14,20 +14,16 @@ type SurfacesMap = Map String Surface
 
 img_smile = "smile"
 img_pacman = "pacman"
+img_all = [img_smile, img_pacman]
 
 loadImages :: IO (SurfacesMap)
-loadImages = let ext = ".bmp"
-                 loadImg name = loadBMP $ name ++ ext
-             in do smile <- loadImg $ img_smile
-                   pacman <- loadImg $ img_pacman
-                   return $ Map.fromList [
-                                           (img_pacman, pacman),
-                                           (img_smile, smile)
-                                         ]
+loadImages
+    = do surfaces <- mapM (\name -> loadBMP $ name ++ ".bmp") img_all
+         return $ Map.fromList $ zip img_all surfaces
 
 displayObjects :: Surface -> Float -> [Surface] -> IO ()
 displayObjects screen posx images
-    = do blitSurface (List.head images)  Nothing screen (Just $ Rect (round posx) 50 0 0 )
+    = do blitSurface (List.head images)  Nothing screen (Just $ Rect (round posx) 50 0 0)
          return ()
 
 display :: Objects -> SurfacesMap -> IO ()
