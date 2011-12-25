@@ -54,12 +54,16 @@ data GameData = GameData { objects :: Objects,
                            pacman :: Object
                          } deriving (Show)
 
+handleEvent :: TimeDelta -> Event -> GameData -> IO(GameData)
 handleEvent dt NoEvent gd = return gd
-handleEvent dt (KeyDown (Keysym SDLK_RIGHT _ _)) (GameData objs pacman) = return $ GameData objs (pacman + 40*dt)
-handleEvent dt (KeyDown (Keysym SDLK_LEFT  _ _)) (GameData objs pacman) = return $ GameData objs (pacman - 40*dt)
-handleEvent dt (KeyDown (Keysym _ _ 'q')) gd = exitWith ExitSuccess
 handleEvent dt SDL.Quit gd = exitWith ExitSuccess
-handleEvent dt _ gd = return gd
+handleEvent dt (KeyDown (Keysym _ _ 'q')) gd = exitWith ExitSuccess
+handleEvent dt (KeyDown keysym) (GameData objs pacman) = handleKeyDown keysym where
+    handleKeyDown (Keysym SDLK_RIGHT _ _) = return $ GameData objs (pacman + 40*dt)
+    handleKeyDown (Keysym SDLK_LEFT  _ _) = return $ GameData objs (pacman - 40*dt)
+    handleKeyDown (Keysym SDLK_UP    _ _) = return $ GameData objs (pacman - 40*dt)
+    handleKeyDown (Keysym SDLK_DOWN  _ _) = return $ GameData objs (pacman - 40*dt)
+handleEvent _ _ gd = return gd
 
 loop :: CpuTime -> GameData -> SurfacesMap -> IO ()
 loop startTime gameData images
@@ -68,11 +72,11 @@ loop startTime gameData images
 
          event <- pollEvent
          (GameData objects pacman) <- handleEvent dt event gameData
-         let updatedObjects = moveObjects objects dt
+         let objects' = moveObjects objects dt
 
-         display (pacman : updatedObjects) images
+         display (pacman : objects') images
 
-         loop endTime (GameData updatedObjects pacman) images
+         loop endTime (GameData objects' pacman) images
 
 main = withInit [InitVideo] $
     do screen <- setVideoMode window_width window_height 16 [SWSurface]
