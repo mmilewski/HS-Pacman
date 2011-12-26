@@ -1,12 +1,14 @@
 module Main where
 
+import Prelude hiding (lookup)
 import Graphics.UI.SDL as SDL
 import Graphics.UI.SDL.Image as Image
 import System.Exit
 import System.Random
 import System.CPUTime
-import Data.List as List
-import Data.Map as Map
+import Data.List as List hiding (lookup)
+import Data.Map (Map, fromList, lookup)
+import Data.Maybe (fromJust)
 
 type Object = Float
 type Objects = [Object]
@@ -16,6 +18,7 @@ type CpuTime = Integer
 
 (window_width, window_height) = (800, 600)
 
+img_placeholder = img_smile
 img_smile = "smile"
 img_pacman = "pacman"
 img_board_bottom = "board-bottom"
@@ -27,11 +30,11 @@ img_all = [img_smile, img_pacman, img_board_bottom, img_board_right, img_board_l
 loadImages :: IO (SurfacesMap)
 loadImages
     = do surfaces <- mapM (\name -> Image.load $ concat ["gfx/", name, ".png"]) img_all
-         return $ Map.fromList $ zip img_all surfaces
+         return $ fromList $ zip img_all surfaces
 
 displayObjects :: Surface -> Float -> [Surface] -> IO ()
 displayObjects screen posx images
-    = do blitSurface (List.head images)  Nothing screen (Just $ Rect (round posx) 50 0 0)
+    = do blitSurface (head images)  Nothing screen (Just $ Rect (round posx) 50 0 0)
          return ()
 
 displayObject :: Surface -> Vector -> Surface -> IO ()
@@ -41,20 +44,20 @@ displayObject screen (Vector x y) image
 
 display :: GameData -> SurfacesMap -> IO ()
 display (GameData objects (Player pos) board) imagesMap =
-  do let images = List.map snd $ Map.toList imagesMap
-     screen <- getVideoSurface
+  do screen <- getVideoSurface
      let format = surfaceGetPixelFormat screen in
        do red   <- mapRGB format 0xFF 0 0
           green <- mapRGB format 0 0xFF 0
           fillRect screen Nothing green
           fillRect screen (Just $ Rect 10 10 10 10) red
-          mapM_ (\obj -> displayObjects screen obj images) objects
-          displayObject screen pos (List.head images)
+          let placeholder = fromJust $ lookup img_placeholder imagesMap
+          mapM_ (\obj -> displayObjects screen obj [placeholder]) objects
+          displayObject screen pos (fromJust $ lookup img_pacman imagesMap)
           SDL.flip screen
 
 moveObjects :: Objects -> TimeDelta -> Objects
 moveObjects objects dt
-    = List.map updateObject objects
+    = map updateObject objects
       where updateObject obj = if obj > fromIntegral window_width then 0 else obj + 20.0 * dt
 
 
@@ -78,7 +81,7 @@ data GameData = GameData { objects :: Objects,
                          } deriving (Show)
 
 handleEvent :: TimeDelta -> Event -> GameData -> IO(GameData)
-handleEvent dt NoEvent gd = return gd
+handleEvent dt SDL.NoEvent gd = return gd
 handleEvent dt SDL.Quit gd = exitWith ExitSuccess
 handleEvent dt (KeyDown (Keysym _ _ 'q')) gd = exitWith ExitSuccess
 handleEvent dt (KeyDown keysym) (GameData objs pacman board) = handleKeyDown keysym where
