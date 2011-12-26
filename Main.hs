@@ -81,8 +81,8 @@ handleEvent dt (KeyDown (Keysym _ _ 'q')) gd = exitWith ExitSuccess
 handleEvent dt (KeyDown keysym) (GameData objs pacman) = handleKeyDown keysym where
     handleKeyDown (Keysym SDLK_RIGHT _ _) = return $ GameData objs (movePlayer pacman (Vector ( 40*dt) 0))
     handleKeyDown (Keysym SDLK_LEFT  _ _) = return $ GameData objs (movePlayer pacman (Vector (-40*dt) 0))
-    -- handleKeyDown (Keysym SDLK_UP    _ _) = return $ GameData objs (pacman - 40*dt)
-    -- handleKeyDown (Keysym SDLK_DOWN  _ _) = return $ GameData objs (pacman - 40*dt)
+    handleKeyDown (Keysym SDLK_DOWN  _ _) = return $ GameData objs (movePlayer pacman (Vector 0 ( 40*dt)))
+    handleKeyDown (Keysym SDLK_UP    _ _) = return $ GameData objs (movePlayer pacman (Vector 0 (-40*dt)))
 handleEvent _ _ gd = return gd
 
 loop :: CpuTime -> GameData -> SurfacesMap -> IO ()
