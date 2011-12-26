@@ -48,7 +48,8 @@ displayBoardPiece screen imagesMap (boardWidth, boardHeight) (i, piece)
     = do let image = fromJust $ lookup img_smile imagesMap
          let row = fromIntegral $ i `div` boardWidth
              col = fromIntegral $ i `mod` boardWidth
-         blitSurface image Nothing screen (Just $ Rect (round $ 50 * col) (round $ row * 50) 0 0) >> return ()
+             (tileW, tileH) = (50, 50)
+         blitSurface image Nothing screen (Just $ Rect (round $ tileW * col) (round $ row * tileH) 0 0) >> return ()
 
 display :: GameData -> SurfacesMap -> IO ()
 display (GameData objects (Player pos) board) imagesMap =
