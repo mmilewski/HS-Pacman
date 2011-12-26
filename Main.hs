@@ -22,11 +22,12 @@ boardSize = (16, 12)   -- width, height
 img_placeholder = img_smile
 img_smile = "smile"
 img_pacman = "pacman"
+img_board_empty = "board-empty"
 img_board_bottom = "board-bottom"
 img_board_right = "board-right"
 img_board_left = "board-left"
 img_board_top = "board-top"
-img_all = [img_smile, img_pacman, img_board_bottom, img_board_right, img_board_left, img_board_top]
+img_all = [img_smile, img_pacman, img_board_empty, img_board_bottom, img_board_right, img_board_left, img_board_top]
 
 loadImages :: IO (SurfacesMap)
 loadImages
@@ -45,8 +46,10 @@ displayObject screen (Vector x y) image
 
 displayBoardPiece :: Surface -> SurfacesMap -> (Int, Int) -> (Int, Int) -> IO ()
 displayBoardPiece screen imagesMap (boardWidth, boardHeight) (i, piece)
-    = do let image = fromJust $ lookup img_smile imagesMap
-         let row = fromIntegral $ i `div` boardWidth
+    = do let image = fromJust $ lookup (imgNameByPiece piece) imagesMap
+             imgNameByPiece piece = fromJust $ lookup piece $ fromList [(0, img_board_empty), (1, img_board_top),
+                                                                        (2, img_board_right), (4, img_board_bottom), (8, img_board_left)]
+             row = fromIntegral $ i `div` boardWidth
              col = fromIntegral $ i `mod` boardWidth
              (tileW, tileH) = (50, 50)
          blitSurface image Nothing screen (Just $ Rect (round $ tileW * col) (round $ row * tileH) 0 0) >> return ()
@@ -120,4 +123,15 @@ main = withInit [InitVideo] $
        loop startTime (GameData objects player board) images
        where objects = [50.0]
              player = (Player $ Vector 31 100)
-             board = take (w * h) $ repeat 0 where w = fst boardSize ; h = snd boardSize
+             board = [1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1,
+                      8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                      8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                      8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                      8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                      8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                      8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                      8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                      8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                      4, 0, 4, 0, 4, 0, 4, 0, 4, 0, 4, 0, 4, 0, 4, 4]
