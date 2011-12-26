@@ -2,7 +2,9 @@
 @ wyświetlanie obrazka
 
 * wyświetlanie pacmana - 4 obrazki w zależności od kierunku ruchu
-* poruszanie pacamanem po planszy
+* pacman porusza się w wybranym kierunku aż do napotkania ściany
+* pacman zmienia kierunek ruchu gdy gracz nacisnie klawisz
+@ poruszanie pacamanem po planszy
 * kolizje pacamana z planszą
 
 * wyświetlanie potwora
