@@ -17,6 +17,7 @@ type TimeDelta = Float
 type CpuTime = Integer
 
 (window_width, window_height) = (800, 600)
+boardSize = (16, 12)   -- width, height
 
 img_placeholder = img_smile
 img_smile = "smile"
@@ -42,11 +43,19 @@ displayObject screen (Vector x y) image
     = do blitSurface image Nothing screen (Just $ Rect (round x) (round y) 0 0 )
          return ()
 
+displayBoardPiece :: Surface -> SurfacesMap -> (Int, Int) -> (Int, Int) -> IO ()
+displayBoardPiece screen imagesMap (boardWidth, boardHeight) (i, piece)
+    = do let image = fromJust $ lookup img_smile imagesMap
+         let row = fromIntegral $ i `div` boardWidth
+             col = fromIntegral $ i `mod` boardWidth
+         blitSurface image Nothing screen (Just $ Rect (round $ 50 * col) (round $ row * 50) 0 0) >> return ()
+
 display :: GameData -> SurfacesMap -> IO ()
 display (GameData objects (Player pos) board) imagesMap =
   do screen <- getVideoSurface
      green <- mapRGB (surfaceGetPixelFormat screen) 0 0xFF 0
      fillRect screen Nothing green
+     mapM_ (\ip -> displayBoardPiece screen imagesMap boardSize ip) $ zip (List.iterate (+1) 0) board
      let placeholder = fromJust $ lookup img_placeholder imagesMap
      mapM_ (\obj -> displayObjects screen obj [placeholder]) objects
      displayObject screen pos (fromJust $ lookup img_pacman imagesMap)
@@ -110,4 +119,4 @@ main = withInit [InitVideo] $
        loop startTime (GameData objects player board) images
        where objects = [50.0]
              player = (Player $ Vector 31 100)
-             board = take (15*15) $ repeat 0
+             board = take (w * h) $ repeat 0 where w = fst boardSize ; h = snd boardSize
