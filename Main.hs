@@ -1,6 +1,7 @@
 module Main where
 
 import Graphics.UI.SDL as SDL
+import Graphics.UI.SDL.Image as Image
 import System.Exit
 import System.Random
 import System.CPUTime
@@ -17,11 +18,15 @@ type CpuTime = Integer
 
 img_smile = "smile"
 img_pacman = "pacman"
-img_all = [img_smile, img_pacman]
+img_board_bottom = "board-bottom"
+img_board_right = "board-right"
+img_board_left = "board-left"
+img_board_top = "board-top"
+img_all = [img_smile, img_pacman, img_board_bottom, img_board_right, img_board_left, img_board_top]
 
 loadImages :: IO (SurfacesMap)
 loadImages
-    = do surfaces <- mapM (\name -> loadBMP $ name ++ ".bmp") img_all
+    = do surfaces <- mapM (\name -> Image.load $ concat ["gfx/", name, ".png"]) img_all
          return $ Map.fromList $ zip img_all surfaces
 
 displayObjects :: Surface -> Float -> [Surface] -> IO ()
@@ -34,8 +39,8 @@ displayObject screen (Vector x y) image
     = do blitSurface image Nothing screen (Just $ Rect (round x) (round y) 0 0 )
          return ()
 
-display :: Player -> Objects -> SurfacesMap -> IO ()
-display (Player pos) objects imagesMap =
+display :: GameData -> SurfacesMap -> IO ()
+display (GameData objects (Player pos) board) imagesMap =
   do let images = List.map snd $ Map.toList imagesMap
      screen <- getVideoSurface
      let format = surfaceGetPixelFormat screen in
@@ -92,9 +97,9 @@ loop startTime gameData images
          (GameData objects pacman board) <- handleEvent dt event gameData
          let objects' = moveObjects objects dt
 
-         display pacman objects' images
-
-         loop endTime (GameData objects' pacman board) images
+         let gameData' = (GameData objects' pacman board)
+         display gameData' images
+         loop endTime gameData' images
 
 main = withInit [InitVideo] $
     do screen <- setVideoMode window_width window_height 16 [SWSurface]
