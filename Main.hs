@@ -45,15 +45,12 @@ displayObject screen (Vector x y) image
 display :: GameData -> SurfacesMap -> IO ()
 display (GameData objects (Player pos) board) imagesMap =
   do screen <- getVideoSurface
-     let format = surfaceGetPixelFormat screen in
-       do red   <- mapRGB format 0xFF 0 0
-          green <- mapRGB format 0 0xFF 0
-          fillRect screen Nothing green
-          fillRect screen (Just $ Rect 10 10 10 10) red
-          let placeholder = fromJust $ lookup img_placeholder imagesMap
-          mapM_ (\obj -> displayObjects screen obj [placeholder]) objects
-          displayObject screen pos (fromJust $ lookup img_pacman imagesMap)
-          SDL.flip screen
+     green <- mapRGB (surfaceGetPixelFormat screen) 0 0xFF 0
+     fillRect screen Nothing green
+     let placeholder = fromJust $ lookup img_placeholder imagesMap
+     mapM_ (\obj -> displayObjects screen obj [placeholder]) objects
+     displayObject screen pos (fromJust $ lookup img_pacman imagesMap)
+     SDL.flip screen
 
 moveObjects :: Objects -> TimeDelta -> Objects
 moveObjects objects dt
