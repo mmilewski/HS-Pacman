@@ -9,6 +9,7 @@ import System.CPUTime
 import Data.List as List hiding (lookup)
 import Data.Map (Map, fromList, lookup)
 import Data.Maybe (fromJust)
+import Data.Bits ((.&.))
 
 type Object = Float
 type Objects = [Object]
@@ -46,13 +47,17 @@ displayObject screen (Vector x y) image
 
 displayBoardPiece :: Surface -> SurfacesMap -> (Int, Int) -> (Int, Int) -> IO ()
 displayBoardPiece screen imagesMap (boardWidth, boardHeight) (i, piece)
-    = do let image = fromJust $ lookup (imgNameByPiece piece) imagesMap
-             imgNameByPiece piece = fromJust $ lookup piece $ fromList [(0, img_board_empty), (1, img_board_top),
-                                                                        (2, img_board_right), (4, img_board_bottom), (8, img_board_left)]
-             row = fromIntegral $ i `div` boardWidth
-             col = fromIntegral $ i `mod` boardWidth
-             (tileW, tileH) = (50, 50)
-         blitSurface image Nothing screen (Just $ Rect (round $ tileW * col) (round $ row * tileH) 0 0) >> return ()
+    = do blit $ surfaceByPiece (piece .&. 1)
+         blit $ surfaceByPiece (piece .&. 2)
+         blit $ surfaceByPiece (piece .&. 4)
+         blit $ surfaceByPiece (piece .&. 8)
+         where blit surface = blitSurface surface Nothing screen (Just $ Rect (round $ tileW * col) (round $ row * tileH) 0 0) >> return ()
+               surfaceByPiece p = fromJust $ lookup (nameByPiece p) imagesMap
+               nameByPiece p = fromJust $ lookup p $ fromList [(0, img_board_empty), (1, img_board_top),
+                                                               (2, img_board_right), (4, img_board_bottom), (8, img_board_left)]
+               (tileW, tileH) = (50, 50)
+               row = fromIntegral $ i `div` boardWidth
+               col = fromIntegral $ i `mod` boardWidth
 
 display :: GameData -> SurfacesMap -> IO ()
 display (GameData objects (Player pos) board) imagesMap =
@@ -123,15 +128,15 @@ main = withInit [InitVideo] $
        loop startTime (GameData objects player board) images
        where objects = [50.0]
              player = (Player $ Vector 31 100)
-             board = [1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1,
-                      8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                      8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                      8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                      8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                      8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                      8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                      8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                      8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                      4, 0, 4, 0, 4, 0, 4, 0, 4, 0, 4, 0, 4, 0, 4, 4]
+             board = [ 9,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  3,
+                       8,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  2,
+                       8,  0,  0,  0,  2,  0,  0,  0,  0,  0,  0,  1,  3,  0,  0,  2,
+                       8,  0,  0, 15,  2,  0,  0,  0,  2,  0,  0,  0,  2,  0,  0,  2,
+                       8,  0,  0,  0,  2,  0,  0,  0,  2,  0,  0,  0,  2,  0,  0,  2,
+                       8,  0,  0,  0,  0,  0,  0,  0,  2,  0,  0,  0,  2,  0,  0,  2,
+                       8,  0,  0,  2,  0,  2,  0,  0,  2,  0, 12,  4,  6,  4,  6,  2,
+                       8,  0,  8,  2,  0,  2,  0,  0,  0,  0,  0,  0,  0,  0,  0,  2,
+                       8,  0, 12,  6,  4,  6,  0,  0,  0,  0,  0,  0,  0,  0,  0,  2,
+                       8,  0,  0,  0,  0,  0,  0,  0,  0,  2,  0,  0,  0,  0,  0,  2,
+                       8,  0,  0,  0,  2,  0,  0,  0,  0,  2,  0,  0,  0,  0,  0,  2,
+                      12,  4,  4,  4,  6,  4,  4,  4,  4,  6,  4,  4,  4,  4,  4,  6]
