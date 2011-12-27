@@ -4,7 +4,6 @@ import Prelude hiding (lookup)
 import Graphics.UI.SDL as SDL
 import Graphics.UI.SDL.Image as Image
 import System.Exit
-import System.Random
 import System.CPUTime
 import Data.List as List hiding (lookup)
 import Data.Map (Map, fromList, lookup)
@@ -52,9 +51,8 @@ displayBoardPiece screen imagesMap (boardWidth, boardHeight) (i, piece)
          blit $ surfaceByPiece (piece .&. 4)
          blit $ surfaceByPiece (piece .&. 8)
          where blit surface = blitSurface surface Nothing screen (Just $ Rect (round $ tileW * col) (round $ row * tileH) 0 0) >> return ()
-               surfaceByPiece p = fromJust $ lookup (nameByPiece p) imagesMap
-               nameByPiece p = fromJust $ lookup p $ fromList [(0, img_board_empty), (1, img_board_top),
-                                                               (2, img_board_right), (4, img_board_bottom), (8, img_board_left)]
+               surfaceByPiece p = fromJust $ lookup (fromJust $ lookup p boardMap) imagesMap
+               boardMap = fromList [(0, img_board_empty), (1, img_board_top), (2, img_board_right), (4, img_board_bottom), (8, img_board_left)]
                (tileW, tileH) = (50, 50)
                row = fromIntegral $ i `div` boardWidth
                col = fromIntegral $ i `mod` boardWidth
@@ -72,8 +70,8 @@ display (GameData objects (Player pos) board) imagesMap =
 
 moveObjects :: Objects -> TimeDelta -> Objects
 moveObjects objects dt
-    = map updateObject objects
-      where updateObject obj = if obj > fromIntegral window_width then 0 else obj + 20.0 * dt
+    = map move objects
+      where move obj = if obj > fromIntegral window_width then 0 else obj + 20.0 * dt
 
 
 data Vector = Vector Float Float
@@ -126,7 +124,7 @@ main = withInit [InitVideo] $
        images <- loadImages
        startTime <- getCPUTime
        loop startTime (GameData objects player board) images
-       where objects = [50.0]
+       where objects = [50, 350]
              player = (Player $ Vector 31 100)
              board = [ 9,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  3,
                        8,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  2,
