@@ -1,10 +1,9 @@
-
 ## Dependencies
-libghc6-sdl-dev
-libghc6-sdl-image-dev
+* libghc6-sdl-dev
+* libghc6-sdl-image-dev
 
 ## Optional
-libghc6-sdl-doc
+* libghc6-sdl-doc
 
 ## See
 
