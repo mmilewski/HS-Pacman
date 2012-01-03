@@ -106,11 +106,10 @@ w prawo
 brickAt board x y = List.head $ List.drop n board
     where n = (round $ fromIntegral $ y `div` brickHeight) * boardWidth + (round $ fromIntegral $ x `div` brickWidth)
 
-movePlayerRight :: Position -> TimeDelta -> Board -> (Position, PlayerPosUpdater)
-movePlayerRight oldPos dt board = (vadd oldPos (Vector ( 40.0 * dt) 0), asUpdater movePlayerRight)
-movePlayerLeft  oldPos dt board = (vadd oldPos (Vector (-40.0 * dt) 0), asUpdater movePlayerLeft)
-movePlayerDown  oldPos dt board = (vadd oldPos (Vector 0 ( 40.0 * dt)), asUpdater movePlayerDown)
-movePlayerUp    oldPos dt board = (vadd oldPos (Vector 0 (-40.0 * dt)), asUpdater movePlayerUp)
+movePlayerRight oldPos@(Vector x y) dt board = (vadd oldPos (Vector ( 40.0 * dt) 0), asUpdater $ if (round x) + brickWidth > windowWidth   then movePlayerLeft  else movePlayerRight)
+movePlayerLeft  oldPos@(Vector x y) dt board = (vadd oldPos (Vector (-40.0 * dt) 0), asUpdater $ if (round x) <= 0                         then movePlayerRight else movePlayerLeft)
+movePlayerDown  oldPos@(Vector x y) dt board = (vadd oldPos (Vector 0 ( 40.0 * dt)), asUpdater $ if (round y) + brickHeight > windowHeight then movePlayerUp    else movePlayerDown)
+movePlayerUp    oldPos@(Vector x y) dt board = (vadd oldPos (Vector 0 (-40.0 * dt)), asUpdater $ if (round y) <= 0                         then movePlayerDown  else movePlayerUp)
 dontMove oldPos _ _ = (oldPos, Updater dontMove)
 
 handleEvent :: TimeDelta -> Event -> GameData -> IO(GameData)
