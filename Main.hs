@@ -80,9 +80,12 @@ vscale (Vector a b) factor = Vector (a * factor) (b * factor)
 instance Show Vector where
     show (Vector a b) = "[" ++ (show a) ++ ", " ++ (show b) ++ "]"
 
-type PlayerPositionUpdater = Position -> TimeDelta -> Board -> Position
+
+data PlayerPosUpdater = Updater { update :: Position -> TimeDelta -> Board -> (Position, PlayerPosUpdater) }
+asUpdater fun = Updater fun
+
 data Player = Player { pos :: Position,
-                       posUpdater :: PlayerPositionUpdater
+                       posUpdater :: PlayerPosUpdater
                      }
 
 type Board = [Int]
@@ -90,7 +93,6 @@ data GameData = GameData { objects :: Objects,
                            pacman :: Player,
                            board :: Board
                          }
-
 
 {-
 posx' <- posx + velx * dt
@@ -102,23 +104,24 @@ w prawo
    można iść dopóki  brick(posx'+brickW, posy) == brick(posx+brickW, posy)
 -}
 brickAt board x y = List.head $ List.drop n board
-                                       where n = (round $ y / brickHeight) * boardWidth + (round $ x / brickWidth)
+    where n = (round $ fromIntegral $ y `div` brickHeight) * boardWidth + (round $ fromIntegral $ x `div` brickWidth)
 
-movePlayerRight oldPos dt board = vadd oldPos (Vector ( 40.0 * dt) 0)
-movePlayerLeft  oldPos dt board = vadd oldPos (Vector (-40.0 * dt) 0)
-movePlayerDown  oldPos dt board = vadd oldPos (Vector 0 ( 40.0 * dt))
-movePlayerUp    oldPos dt board = vadd oldPos (Vector 0 (-40.0 * dt))
-dontMove oldPos _ _ = oldPos
+movePlayerRight :: Position -> TimeDelta -> Board -> (Position, PlayerPosUpdater)
+movePlayerRight oldPos dt board = (vadd oldPos (Vector ( 40.0 * dt) 0), asUpdater movePlayerRight)
+movePlayerLeft  oldPos dt board = (vadd oldPos (Vector (-40.0 * dt) 0), asUpdater movePlayerLeft)
+movePlayerDown  oldPos dt board = (vadd oldPos (Vector 0 ( 40.0 * dt)), asUpdater movePlayerDown)
+movePlayerUp    oldPos dt board = (vadd oldPos (Vector 0 (-40.0 * dt)), asUpdater movePlayerUp)
+dontMove oldPos _ _ = (oldPos, Updater dontMove)
 
 handleEvent :: TimeDelta -> Event -> GameData -> IO(GameData)
 handleEvent dt SDL.NoEvent gd = return gd
 handleEvent dt SDL.Quit gd = exitWith ExitSuccess
 handleEvent dt (KeyDown (Keysym _ _ 'q')) gd = exitWith ExitSuccess
 handleEvent dt (KeyDown keysym) (GameData objs (Player plPos _) board) = handleKeyDown keysym where
-    handleKeyDown (Keysym SDLK_RIGHT _ _) = return $ GameData objs (Player plPos movePlayerRight) board
-    handleKeyDown (Keysym SDLK_LEFT  _ _) = return $ GameData objs (Player plPos movePlayerLeft ) board
-    handleKeyDown (Keysym SDLK_DOWN  _ _) = return $ GameData objs (Player plPos movePlayerDown ) board
-    handleKeyDown (Keysym SDLK_UP    _ _) = return $ GameData objs (Player plPos movePlayerUp   ) board
+    handleKeyDown (Keysym SDLK_RIGHT _ _) = return $ GameData objs (Player plPos $ asUpdater movePlayerRight) board
+    handleKeyDown (Keysym SDLK_LEFT  _ _) = return $ GameData objs (Player plPos $ asUpdater movePlayerLeft ) board
+    handleKeyDown (Keysym SDLK_DOWN  _ _) = return $ GameData objs (Player plPos $ asUpdater movePlayerDown ) board
+    handleKeyDown (Keysym SDLK_UP    _ _) = return $ GameData objs (Player plPos $ asUpdater movePlayerUp   ) board
 handleEvent _ _ gd = return gd
 
 loop :: CpuTime -> GameData -> SurfacesMap -> IO ()
@@ -127,23 +130,43 @@ loop startTime gameData images
          let dt = (fromIntegral (endTime - startTime)) / (10^11)
 
          event <- pollEvent
-         (GameData objects (Player plPos plUpdater) board) <- handleEvent dt event gameData
+         (GameData objects (Player plPos (Updater plUpdater)) board) <- handleEvent dt event gameData
          let objects' = moveObjects objects dt
-         let pacman' = Player (plUpdater plPos dt board) plUpdater
+         let (plPos', plUpdater') = plUpdater plPos dt board
+         let pacman' = Player plPos' plUpdater'
 
          let gameData' = (GameData objects' pacman' board)
          display gameData' images
          loop endTime gameData' images
 
+assert :: Show a => Eq a => a -> a -> String -> IO()
+assert expected actual msg = if expected == actual then return () else error $ "\nexpected: " ++ (show expected) ++ "\nactual: " ++ (show actual) ++ "\ndata: " ++ msg
+
+nums = iterate (+1) 0
+
 main = withInit [InitVideo] $
     do screen <- setVideoMode windowWidth windowHeight 16 [SWSurface]
+
+       mapM_ (\(x,y) -> assert 0 (brickAt nums x y) (show x ++ " , " ++ show y)) $ zip (take 50 $ drop (0*50) nums) (take 50 nums)
+       mapM_ (\(x,y) -> assert 1 (brickAt nums x y) (show x ++ " , " ++ show y)) $ zip (take 50 $ drop (1*50) nums) (take 50 nums)
+       mapM_ (\(x,y) -> assert 5 (brickAt nums x y) (show x ++ " , " ++ show y)) $ zip (take 50 $ drop (5*50) nums) (take 50 nums)
+
+       mapM_ (\(x,y) -> assert (0+1*16) (brickAt nums x y) (show x ++ " , " ++ show y)) $ zip (take 50 $ drop (0*50) nums) (take 50 $ drop(1*50) $ nums)
+       mapM_ (\(x,y) -> assert (1+1*16) (brickAt nums x y) (show x ++ " , " ++ show y)) $ zip (take 50 $ drop (1*50) nums) (take 50 $ drop(1*50) $ nums)
+       mapM_ (\(x,y) -> assert (5+1*16) (brickAt nums x y) (show x ++ " , " ++ show y)) $ zip (take 50 $ drop (5*50) nums) (take 50 $ drop(1*50) $ nums)
+
+       mapM_ (\(x,y) -> assert (0+10*16) (brickAt nums x y) (show x ++ " , " ++ show y)) $ zip (take 50 $ drop (0*50) nums) (take 50 $ drop(10*50) $ nums)
+       mapM_ (\(x,y) -> assert (1+10*16) (brickAt nums x y) (show x ++ " , " ++ show y)) $ zip (take 50 $ drop (1*50) nums) (take 50 $ drop(10*50) $ nums)
+       mapM_ (\(x,y) -> assert (5+10*16) (brickAt nums x y) (show x ++ " , " ++ show y)) $ zip (take 50 $ drop (5*50) nums) (take 50 $ drop(10*50) $ nums)
+
+
        setCaption "HS-Pacman" ""
        enableUnicode True
        images <- loadImages
        startTime <- getCPUTime
        loop startTime (GameData objects player board) images
        where objects = [ (Vector 50 50), (Vector 350 150) ]
-             player = (Player (Vector 0 25) dontMove)
+             player = (Player (Vector 0 25) (asUpdater dontMove))
              board = [ 9,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  3,
                        8,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  2,
                        8,  0,  0,  0,  2,  0,  0,  0,  0,  0,  0,  1,  3,  0,  0,  2,
