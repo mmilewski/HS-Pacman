@@ -10,8 +10,9 @@ import Data.Map (Map, fromList, lookup)
 import Data.Maybe (fromJust)
 import Data.Bits ((.&.))
 
-type Object = Float
+type Object = Vector
 type Objects = [Object]
+type Screen = Surface
 type SurfacesMap = Map String Surface
 type TimeDelta = Float
 type CpuTime = Integer
@@ -34,12 +35,7 @@ loadImages
     = do surfaces <- mapM (\name -> Image.load $ concat ["gfx/", name, ".png"]) img_all
          return $ fromList $ zip img_all surfaces
 
-displayObjects :: Surface -> Float -> [Surface] -> IO ()
-displayObjects screen posx images
-    = do blitSurface (head images)  Nothing screen (Just $ Rect (round posx) 50 0 0)
-         return ()
-
-displayObject :: Surface -> Vector -> Surface -> IO ()
+displayObject :: Screen -> Vector -> Surface -> IO ()
 displayObject screen (Vector x y) image
     = do blitSurface image Nothing screen (Just $ Rect (round x) (round y) 0 0 )
          return ()
@@ -64,15 +60,15 @@ display (GameData objects (Player pos) board) imagesMap =
      fillRect screen Nothing green
      mapM_ (\ip -> displayBoardPiece screen imagesMap boardSize ip) $ zip (List.iterate (+1) 0) board
      let placeholder = fromJust $ lookup img_placeholder imagesMap
-     mapM_ (\obj -> displayObjects screen obj [placeholder]) objects
+     mapM_ (\objPos -> displayObject screen objPos placeholder) objects
      displayObject screen pos (fromJust $ lookup img_pacman imagesMap)
      SDL.flip screen
 
 moveObjects :: Objects -> TimeDelta -> Objects
 moveObjects objects dt
     = map move objects
-      where move obj = if obj > fromIntegral window_width then 0 else obj + 20.0 * dt
-
+      where move (Vector x y) = Vector x' y
+              where x' = if x > fromIntegral window_width then 0 else x + 20.0 * dt
 
 data Vector = Vector Float Float
 vadd (Vector a b) (Vector c d) = Vector (a + c) (b + d)
@@ -124,7 +120,7 @@ main = withInit [InitVideo] $
        images <- loadImages
        startTime <- getCPUTime
        loop startTime (GameData objects player board) images
-       where objects = [50, 350]
+       where objects = [ (Vector 50 50), (Vector 350 150) ]
              player = (Player $ Vector 31 100)
              board = [ 9,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  3,
                        8,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  2,

@@ -1,6 +1,6 @@
 @ wyświetlanie okna
 @ wyświetlanie obrazka
-! merge displayObjects i displayObject
+@ merge displayObjects i displayObject
 
 * wyświetlanie pacmana - 4 obrazki w zależności od kierunku ruchu
 * pacman porusza się w wybranym kierunku aż do napotkania ściany
