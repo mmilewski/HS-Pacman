@@ -20,15 +20,14 @@ type CpuTime = Integer
 (window_width, window_height) = (800, 600)
 boardSize = (16, 12)   -- width, height
 
-img_placeholder = img_smile
-img_smile = "smile"
+img_placeholder = "smile"
 img_pacman = "pacman"
 img_board_empty = "board-empty"
 img_board_bottom = "board-bottom"
 img_board_right = "board-right"
 img_board_left = "board-left"
 img_board_top = "board-top"
-img_all = [img_smile, img_pacman, img_board_empty, img_board_bottom, img_board_right, img_board_left, img_board_top]
+img_all = [img_placeholder, img_pacman, img_board_empty, img_board_bottom, img_board_right, img_board_left, img_board_top]
 
 loadImages :: IO (SurfacesMap)
 loadImages
