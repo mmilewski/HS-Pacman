@@ -20,11 +20,12 @@ type CpuTime = Integer
 (windowWidth, windowHeight) = (800, 600)
 (boardWidth, boardHeight) = (16, 12)
 boardSize = (boardWidth, boardHeight)
-brickWidth = windowWidth `div` boardWidth
+brickWidth  = windowWidth `div` boardWidth
 brickHeight = windowHeight `div` boardHeight
 
-img_placeholder = "smile"
-img_pacman = "pacman"
+img_placeholder = img_smile
+img_smile = "smile"
+img_pacman = img_smile --"pacman"
 img_board_empty = "board-empty"
 img_board_bottom = "board-bottom"
 img_board_right = "board-right"
@@ -90,6 +91,19 @@ data GameData = GameData { objects :: Objects,
                            board :: Board
                          }
 
+
+{-
+posx' <- posx + velx * dt
+
+w lewo
+   można iść dopóki  brick(posx', posy) == brick(posx, posy)
+
+w prawo
+   można iść dopóki  brick(posx'+brickW, posy) == brick(posx+brickW, posy)
+-}
+brickAt board x y = List.head $ List.drop n board
+                                       where n = (round $ y / brickHeight) * boardWidth + (round $ x / brickWidth)
+
 movePlayerRight oldPos dt board = vadd oldPos (Vector ( 40.0 * dt) 0)
 movePlayerLeft  oldPos dt board = vadd oldPos (Vector (-40.0 * dt) 0)
 movePlayerDown  oldPos dt board = vadd oldPos (Vector 0 ( 40.0 * dt))
@@ -129,7 +143,7 @@ main = withInit [InitVideo] $
        startTime <- getCPUTime
        loop startTime (GameData objects player board) images
        where objects = [ (Vector 50 50), (Vector 350 150) ]
-             player = (Player (Vector 31 100) dontMove)
+             player = (Player (Vector 0 25) dontMove)
              board = [ 9,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  3,
                        8,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  2,
                        8,  0,  0,  0,  2,  0,  0,  0,  0,  0,  0,  1,  3,  0,  0,  2,
