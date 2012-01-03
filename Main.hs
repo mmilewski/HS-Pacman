@@ -114,14 +114,16 @@ movePlayerUp    oldPos dt board = (vadd oldPos (Vector 0 (-40.0 * dt)), asUpdate
 dontMove oldPos _ _ = (oldPos, Updater dontMove)
 
 handleEvent :: TimeDelta -> Event -> GameData -> IO(GameData)
-handleEvent dt SDL.NoEvent gd = return gd
-handleEvent dt SDL.Quit gd = exitWith ExitSuccess
-handleEvent dt (KeyDown (Keysym _ _ 'q')) gd = exitWith ExitSuccess
-handleEvent dt (KeyDown keysym) (GameData objs (Player plPos _) board) = handleKeyDown keysym where
-    handleKeyDown (Keysym SDLK_RIGHT _ _) = return $ GameData objs (Player plPos $ asUpdater movePlayerRight) board
-    handleKeyDown (Keysym SDLK_LEFT  _ _) = return $ GameData objs (Player plPos $ asUpdater movePlayerLeft ) board
-    handleKeyDown (Keysym SDLK_DOWN  _ _) = return $ GameData objs (Player plPos $ asUpdater movePlayerDown ) board
-    handleKeyDown (Keysym SDLK_UP    _ _) = return $ GameData objs (Player plPos $ asUpdater movePlayerUp   ) board
+handleEvent _  SDL.Quit    _  = exitWith ExitSuccess
+handleEvent _  SDL.NoEvent gd = return gd
+handleEvent _  (KeyDown (Keysym _ _ 'q')) _ = exitWith ExitSuccess
+handleEvent dt (KeyDown keysym) gd@(GameData objs (Player plPos _) board) = keyDown keysym where
+    updateWithFun updateFun = return $ GameData objs (Player plPos $ asUpdater updateFun) board
+    keyDown (Keysym SDLK_RIGHT _ _) = updateWithFun movePlayerRight
+    keyDown (Keysym SDLK_LEFT  _ _) = updateWithFun movePlayerLeft
+    keyDown (Keysym SDLK_DOWN  _ _) = updateWithFun movePlayerDown
+    keyDown (Keysym SDLK_UP    _ _) = updateWithFun movePlayerUp
+    keyDown _ = return gd
 handleEvent _ _ gd = return gd
 
 loop :: CpuTime -> GameData -> SurfacesMap -> IO ()
