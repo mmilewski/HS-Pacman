@@ -17,8 +17,11 @@ type SurfacesMap = Map String Surface
 type TimeDelta = Float
 type CpuTime = Integer
 
-(window_width, window_height) = (800, 600)
-boardSize = (16, 12)   -- width, height
+(windowWidth, windowHeight) = (800, 600)
+(boardWidth, boardHeight) = (16, 12)
+boardSize = (boardWidth, boardHeight)
+brickWidth = windowWidth `div` boardWidth
+brickHeight = windowHeight `div` boardHeight
 
 img_placeholder = "smile"
 img_pacman = "pacman"
@@ -67,7 +70,7 @@ moveObjects :: Objects -> TimeDelta -> Objects
 moveObjects objects dt
     = map move objects
       where move (Vector x y) = Vector x' y
-              where x' = if x > fromIntegral window_width then 0 else x + 20.0 * dt
+              where x' = if x > fromIntegral windowWidth then 0 else x + 20.0 * dt
 
 data Vector = Vector Float Float
 type Position = Vector
@@ -119,7 +122,7 @@ loop startTime gameData images
          loop endTime gameData' images
 
 main = withInit [InitVideo] $
-    do screen <- setVideoMode window_width window_height 16 [SWSurface]
+    do screen <- setVideoMode windowWidth windowHeight 16 [SWSurface]
        setCaption "HS-Pacman" ""
        enableUnicode True
        images <- loadImages
