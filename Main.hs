@@ -53,14 +53,14 @@ displayBoardPiece screen imagesMap (boardWidth, boardHeight) (i, piece)
                col = fromIntegral $ i `mod` boardWidth
 
 display :: GameData -> SurfacesMap -> IO ()
-display (GameData objects (Player pos) board) imagesMap =
+display (GameData objects (Player plPos _) board) imagesMap =
   do screen <- getVideoSurface
      green <- mapRGB (surfaceGetPixelFormat screen) 0 0xFF 0
      fillRect screen Nothing green
      mapM_ (\ip -> displayBoardPiece screen imagesMap boardSize ip) $ zip (List.iterate (+1) 0) board
      let placeholder = fromJust $ lookup img_placeholder imagesMap
      mapM_ (\objPos -> displayObject screen objPos placeholder) objects
-     displayObject screen pos (fromJust $ lookup img_pacman imagesMap)
+     displayObject screen plPos (fromJust $ lookup img_pacman imagesMap)
      SDL.flip screen
 
 moveObjects :: Objects -> TimeDelta -> Objects
@@ -70,33 +70,38 @@ moveObjects objects dt
               where x' = if x > fromIntegral window_width then 0 else x + 20.0 * dt
 
 data Vector = Vector Float Float
+type Position = Vector
 vadd (Vector a b) (Vector c d) = Vector (a + c) (b + d)
 vscale (Vector a b) factor = Vector (a * factor) (b * factor)
 instance Show Vector where
     show (Vector a b) = "[" ++ (show a) ++ ", " ++ (show b) ++ "]"
 
-
-data Player = Player { pos :: Vector
-                     } deriving (Show)
-
-movePlayer :: Player -> Vector -> Player
-movePlayer (Player pos) pos' = Player (vadd pos pos')
+type PlayerPositionUpdater = Position -> TimeDelta -> Board -> Position
+data Player = Player { pos :: Position,
+                       posUpdater :: PlayerPositionUpdater
+                     }
 
 type Board = [Int]
 data GameData = GameData { objects :: Objects,
                            pacman :: Player,
                            board :: Board
-                         } deriving (Show)
+                         }
+
+movePlayerRight oldPos dt board = vadd oldPos (Vector ( 40.0 * dt) 0)
+movePlayerLeft  oldPos dt board = vadd oldPos (Vector (-40.0 * dt) 0)
+movePlayerDown  oldPos dt board = vadd oldPos (Vector 0 ( 40.0 * dt))
+movePlayerUp    oldPos dt board = vadd oldPos (Vector 0 (-40.0 * dt))
+dontMove oldPos _ _ = oldPos
 
 handleEvent :: TimeDelta -> Event -> GameData -> IO(GameData)
 handleEvent dt SDL.NoEvent gd = return gd
 handleEvent dt SDL.Quit gd = exitWith ExitSuccess
 handleEvent dt (KeyDown (Keysym _ _ 'q')) gd = exitWith ExitSuccess
-handleEvent dt (KeyDown keysym) (GameData objs pacman board) = handleKeyDown keysym where
-    handleKeyDown (Keysym SDLK_RIGHT _ _) = return $ GameData objs (movePlayer pacman (Vector ( 40*dt) 0)) board
-    handleKeyDown (Keysym SDLK_LEFT  _ _) = return $ GameData objs (movePlayer pacman (Vector (-40*dt) 0)) board
-    handleKeyDown (Keysym SDLK_DOWN  _ _) = return $ GameData objs (movePlayer pacman (Vector 0 ( 40*dt))) board
-    handleKeyDown (Keysym SDLK_UP    _ _) = return $ GameData objs (movePlayer pacman (Vector 0 (-40*dt))) board
+handleEvent dt (KeyDown keysym) (GameData objs (Player plPos _) board) = handleKeyDown keysym where
+    handleKeyDown (Keysym SDLK_RIGHT _ _) = return $ GameData objs (Player plPos movePlayerRight) board
+    handleKeyDown (Keysym SDLK_LEFT  _ _) = return $ GameData objs (Player plPos movePlayerLeft ) board
+    handleKeyDown (Keysym SDLK_DOWN  _ _) = return $ GameData objs (Player plPos movePlayerDown ) board
+    handleKeyDown (Keysym SDLK_UP    _ _) = return $ GameData objs (Player plPos movePlayerUp   ) board
 handleEvent _ _ gd = return gd
 
 loop :: CpuTime -> GameData -> SurfacesMap -> IO ()
@@ -105,10 +110,11 @@ loop startTime gameData images
          let dt = (fromIntegral (endTime - startTime)) / (10^11)
 
          event <- pollEvent
-         (GameData objects pacman board) <- handleEvent dt event gameData
+         (GameData objects (Player plPos plUpdater) board) <- handleEvent dt event gameData
          let objects' = moveObjects objects dt
+         let pacman' = Player (plUpdater plPos dt board) plUpdater
 
-         let gameData' = (GameData objects' pacman board)
+         let gameData' = (GameData objects' pacman' board)
          display gameData' images
          loop endTime gameData' images
 
@@ -120,7 +126,7 @@ main = withInit [InitVideo] $
        startTime <- getCPUTime
        loop startTime (GameData objects player board) images
        where objects = [ (Vector 50 50), (Vector 350 150) ]
-             player = (Player $ Vector 31 100)
+             player = (Player (Vector 31 100) dontMove)
              board = [ 9,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  3,
                        8,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  2,
                        8,  0,  0,  0,  2,  0,  0,  0,  0,  0,  0,  1,  3,  0,  0,  2,

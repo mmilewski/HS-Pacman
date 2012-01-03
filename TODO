@@ -3,11 +3,10 @@
 @ merge displayObjects i displayObject
 
 * wyświetlanie pacmana - 4 obrazki w zależności od kierunku ruchu
-* pacman porusza się w wybranym kierunku aż do napotkania ściany
-* pacman zmienia kierunek ruchu gdy gracz nacisnie klawisz
+@ pacman porusza się w wybranym kierunku aż do jego zmiany (nie trzeba trzymać klawisza)
+* kolizje pacamana z planszą - nie można przejść przez ścianę
 @ wyświetlanie planszy
 @ poruszanie pacamanem po planszy
-* kolizje pacamana z planszą
 
 * wyświetlanie potwora
 * kolizje potwora z planszą
@@ -17,6 +16,7 @@
 * jak potwór ucieka, to ma mniejszą prędkość
 
 
+* hud
 * main menu
 * splash
 * high score
