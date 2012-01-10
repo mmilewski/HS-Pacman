@@ -95,6 +95,9 @@ data GameData = GameData { objects :: Objects,
                            board :: Board
                          }
 
+gd_changePlUpdater :: GameData -> UpdaterType -> GameData
+gd_changePlUpdater gd@GameData{pacman=p} newUpdateFun = gd { pacman = p {posUpdater = asUpdater newUpdateFun} }
+
 {-
 posx' <- posx + velx * dt
 
@@ -111,10 +114,8 @@ movePlayerRight oldPos@(Vector x y) dt board = (oldPos `vadd` Vector ( 40.0 * dt
 movePlayerLeft  oldPos@(Vector x y) dt board = (oldPos `vadd` Vector (-40.0 * dt) 0,  asUpdater $ if (round x) <= 0                   then movePlayerRight else movePlayerLeft)
 movePlayerDown  oldPos@(Vector x y) dt board = (oldPos `vadd` Vector 0 ( 40.0 * dt),  asUpdater $ if (round y) + tileH > windowHeight then movePlayerUp    else movePlayerDown)
 movePlayerUp    oldPos@(Vector x y) dt board = (oldPos `vadd` Vector 0 (-40.0 * dt),  asUpdater $ if (round y) <= 0                   then movePlayerDown  else movePlayerUp)
-dontMove oldPos _ _ = (oldPos, Updater dontMove)
+dontMove oldPos _ _ = (oldPos, asUpdater dontMove)
 
-gd_changePlUpdater :: GameData -> UpdaterType -> GameData
-gd_changePlUpdater (GameData objs (Player plPos _) board) newUpdateFun = GameData objs (Player plPos $ asUpdater newUpdateFun) board
 
 handleEvent :: Event -> GameData -> IO(GameData)
 handleEvent (KeyDown (Keysym _ _ 'q')) _  = exitWith ExitSuccess
