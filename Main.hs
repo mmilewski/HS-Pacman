@@ -21,6 +21,8 @@ type Screen = Surface
 boardSize = (boardWidth, boardHeight)
 (tileW, tileH) = (windowWidth `div` boardWidth, windowHeight `div` boardHeight)
 
+plSpeed = 20         -- player/pacman's speed (px/s)
+
 img_placeholder = img_smile
 img_smile = "smile"
 img_pacman = img_smile --"pacman"
@@ -39,7 +41,7 @@ loadImages
          return $ fromList $ zip img_all surfaces
 
 display :: GameData -> SurfacesMap -> IO ()
-display (GameData objects (Player plPos) board) imagesMap
+display (GameData objects (Player plPos _) board) imagesMap
     = do screen <- getVideoSurface
          displayBg screen
          displayBoard screen
@@ -81,7 +83,10 @@ moveObjects :: Objects -> TimeDelta -> Objects
 moveObjects objects dt = map move objects
     where move (Vector x y) = Vector x' y where x' = if round x >= windowWidth then 0 else x + 20.0 * dt
 
-data Player = Player { pos :: Vector
+data Direction = N | W | S | E | X deriving (Show, Eq, Ord)
+
+data Player = Player { pos :: Vector,
+                       dir :: Direction
                      } deriving (Show)
 
 
@@ -106,19 +111,28 @@ brickAt board x y = List.head $ List.drop n board
     where n = (roundFromIntegral$ y `div` tileH) * boardWidth + (roundFromIntegral$ x `div` tileW)
 
 movePlayer :: Player -> Vector -> Player
-movePlayer (Player pos) pos' = Player (vadd pos pos')
+movePlayer (Player pos _ ) pos' = Player (vadd pos pos') N
 
 handleEvent :: TimeDelta -> Event -> GameData -> IO(GameData)
 handleEvent dt SDL.NoEvent gd = return gd
 handleEvent dt SDL.Quit gd = exitWith ExitSuccess
 handleEvent dt (KeyDown (Keysym _ _ 'q')) gd = exitWith ExitSuccess
 handleEvent dt (KeyDown keysym) gd@(GameData objs pacman board) = handleKeyDown keysym where
-    handleKeyDown (Keysym SDLK_RIGHT _ _) = return $ GameData objs (movePlayer pacman (Vector ( 40*dt) 0)) board
-    handleKeyDown (Keysym SDLK_LEFT  _ _) = return $ GameData objs (movePlayer pacman (Vector (-40*dt) 0)) board
-    handleKeyDown (Keysym SDLK_DOWN  _ _) = return $ GameData objs (movePlayer pacman (Vector 0 ( 40*dt))) board
-    handleKeyDown (Keysym SDLK_UP    _ _) = return $ GameData objs (movePlayer pacman (Vector 0 (-40*dt))) board
+    handleKeyDown (Keysym SDLK_RIGHT _ _) = return $ GameData objs (movePacman dt (pacman{dir=W}) ) board
+    handleKeyDown (Keysym SDLK_LEFT  _ _) = return $ GameData objs (movePacman dt (pacman{dir=E}) ) board
+    handleKeyDown (Keysym SDLK_DOWN  _ _) = return $ GameData objs (movePacman dt (pacman{dir=S}) ) board
+    handleKeyDown (Keysym SDLK_UP    _ _) = return $ GameData objs (movePacman dt (pacman{dir=N}) ) board
     handleKeyDown _                       = return gd
 handleEvent _ _ gd = return gd
+
+movePacman :: TimeDelta -> Player -> Player
+movePacman dt (Player pos dir)
+    = Player (pos `vadd` (offset `vscale` dt)) dir where offset = case dir of
+                                                           N -> Vector 0          (-plSpeed)
+                                                           S -> Vector 0          plSpeed
+                                                           W -> Vector plSpeed    0
+                                                           E -> Vector (-plSpeed) 0
+                                                           X -> Vector 0          0
 
 loop :: CpuTime -> GameData -> SurfacesMap -> IO ()
 loop startTime gameData images
@@ -128,8 +142,9 @@ loop startTime gameData images
          event <- pollEvent
          (GameData objects pacman board) <- handleEvent dt event gameData
          let objects' = moveObjects objects dt
+         let pacman' = movePacman dt pacman
 
-         let gameData' = (GameData objects' pacman board)
+         let gameData' = (GameData objects' pacman' board)
          display gameData' images
          loop endTime gameData' images
 
@@ -156,7 +171,7 @@ main = withInit [InitVideo] $
        startTime <- getCPUTime
        loop startTime (GameData objects player board) images
        where objects = [ (Vector 50 50), (Vector 350 150) ]
-             player = (Player $ Vector 31 100)
+             player = (Player (Vector 31 100) X)
              board = [ 9,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  3,
                        8,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  2,
                        8,  0,  0,  0,  2,  0,  0,  0,  0,  0,  0,  1,  3,  0,  0,  2,
