@@ -34,6 +34,8 @@ img_board_top = "board-top"
 img_all = [img_smile, img_pacman, img_board_empty, img_board_bottom, img_board_right, img_board_left, img_board_top]
 
 roundFromIntegral x = round $ fromIntegral x
+float :: Int -> Float      -- konwersja Int ~~> Float
+float = fromIntegral
 
 loadImages :: IO (SurfacesMap)
 loadImages
@@ -72,6 +74,7 @@ display (GameData objects (Player plPos _) board) imagesMap
 data Vector = Vector Float Float
 type Position = Vector
 vadd (Vector a b) (Vector c d) = Vector (a + c) (b + d)
+vsub (Vector a b) (Vector c d) = Vector (a - c) (b - d)
 vscale (Vector a b) factor = Vector (a * factor) (b * factor)
 instance Show Vector where
     show (Vector a b) = "[" ++ (show a) ++ ", " ++ (show b) ++ "]"
@@ -174,7 +177,7 @@ main = withInit [InitVideo] $
        startTime <- getCPUTime
        loop startTime (GameData objects player board) images
        where objects = [ (Vector 50 50), (Vector 350 150) ]
-             player = (Player (Vector 31 100) X)
+             player = (Player (Vector 50 100) X)
              board = [ 9,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  3,
                        8,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  2,
                        8,  0,  0,  0,  2,  0,  0,  0,  0,  0,  0,  1,  3,  0,  0,  2,
