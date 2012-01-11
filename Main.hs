@@ -113,9 +113,24 @@ brickAt :: Board -> Int -> Int -> Int
 brickAt board x y = List.head $ List.drop n board
     where n = (roundFromIntegral$ y `div` tileH) * boardWidth + (roundFromIntegral$ x `div` tileW)
 
+
+-- -- tak napisałbym w każdym sensownym języku. Niestety Haskell nie ogarnia sytuacji
+-- -- i zmusił mnie do zrobienia brzydkiego obejścia, bleh :(
+-- getNearestCenter plPos@(Vector x y) = Vector x' y' where x' = (floor$ x/tileW) * tileW + tileW/2
+--                                                          y' = (floor$ y/tileH) * tileH + tileH/2
+getNearestCenter plPos@(Vector x y) = Vector x' y' where x' = findCoordX x
+                                                         y' = findCoordY y
+findCoordX :: Float -> Float
+findCoordX x = if 0 <= x && x < (float tileW) then (float tileW)/2 else (float tileW) + findCoordX (x - float tileW)
+findCoordY :: Float -> Float
+findCoordY x = if 0 <= x && x < (float tileH) then (float tileH)/2 else (float tileH) + findCoordY (x - float tileH)
+
 changeDir :: Player -> TimeDelta -> Direction -> Board -> Player
-changeDir pacman dt newDir board
-    = pacman {dir = newDir}
+changeDir pacman@(Player plPos plDir) dt newDir board
+    = if plDir == newDir then pacman
+      else pacman {dir = newDir, pos = plPos'}
+           where plPos' = getNearestCenter plPos `vsub` tileHalf
+                 tileHalf = Vector (float tileW) (float tileH) `vscale` 0.5
 
 movePacman :: TimeDelta -> Player -> Direction -> Board -> Player
 movePacman dt (Player pos dir) newDir board
