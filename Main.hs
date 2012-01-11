@@ -110,29 +110,32 @@ brickAt :: Board -> Int -> Int -> Int
 brickAt board x y = List.head $ List.drop n board
     where n = (roundFromIntegral$ y `div` tileH) * boardWidth + (roundFromIntegral$ x `div` tileW)
 
-movePlayer :: Player -> Vector -> Player
-movePlayer (Player pos _ ) pos' = Player (vadd pos pos') N
+changeDir :: Player -> TimeDelta -> Direction -> Board -> Player
+changeDir pacman dt newDir board
+    = pacman {dir = newDir}
+
+movePacman :: TimeDelta -> Player -> Direction -> Board -> Player
+movePacman dt (Player pos dir) newDir board
+    = Player pos' dir
+      where pos' = (pos `vadd` (offset `vscale` dt))
+            offset = case newDir of
+              N -> Vector 0          (-plSpeed)
+              S -> Vector 0          plSpeed
+              W -> Vector plSpeed    0
+              E -> Vector (-plSpeed) 0
+              X -> Vector 0          0
 
 handleEvent :: TimeDelta -> Event -> GameData -> IO(GameData)
 handleEvent dt SDL.NoEvent gd = return gd
 handleEvent dt SDL.Quit gd = exitWith ExitSuccess
 handleEvent dt (KeyDown (Keysym _ _ 'q')) gd = exitWith ExitSuccess
-handleEvent dt (KeyDown keysym) gd@(GameData objs pacman board) = handleKeyDown keysym where
-    handleKeyDown (Keysym SDLK_RIGHT _ _) = return $ GameData objs (movePacman dt (pacman{dir=W}) ) board
-    handleKeyDown (Keysym SDLK_LEFT  _ _) = return $ GameData objs (movePacman dt (pacman{dir=E}) ) board
-    handleKeyDown (Keysym SDLK_DOWN  _ _) = return $ GameData objs (movePacman dt (pacman{dir=S}) ) board
-    handleKeyDown (Keysym SDLK_UP    _ _) = return $ GameData objs (movePacman dt (pacman{dir=N}) ) board
+handleEvent dt (KeyDown keysym) gd@(GameData _ pacman board) = handleKeyDown keysym where
+    handleKeyDown (Keysym SDLK_RIGHT _ _) = return $ gd{pacman = changeDir pacman dt W board}
+    handleKeyDown (Keysym SDLK_LEFT  _ _) = return $ gd{pacman = changeDir pacman dt E board}
+    handleKeyDown (Keysym SDLK_DOWN  _ _) = return $ gd{pacman = changeDir pacman dt S board}
+    handleKeyDown (Keysym SDLK_UP    _ _) = return $ gd{pacman = changeDir pacman dt N board}
     handleKeyDown _                       = return gd
 handleEvent _ _ gd = return gd
-
-movePacman :: TimeDelta -> Player -> Player
-movePacman dt (Player pos dir)
-    = Player (pos `vadd` (offset `vscale` dt)) dir where offset = case dir of
-                                                           N -> Vector 0          (-plSpeed)
-                                                           S -> Vector 0          plSpeed
-                                                           W -> Vector plSpeed    0
-                                                           E -> Vector (-plSpeed) 0
-                                                           X -> Vector 0          0
 
 loop :: CpuTime -> GameData -> SurfacesMap -> IO ()
 loop startTime gameData images
@@ -140,9 +143,9 @@ loop startTime gameData images
          let dt = (fromIntegral (endTime - startTime)) / (10^11)
 
          event <- pollEvent
-         (GameData objects pacman board) <- handleEvent dt event gameData
+         (GameData objects pacman@(Player _ dir) board) <- handleEvent dt event gameData
          let objects' = moveObjects objects dt
-         let pacman' = movePacman dt pacman
+         let pacman' = movePacman dt pacman dir board
 
          let gameData' = (GameData objects' pacman' board)
          display gameData' images
