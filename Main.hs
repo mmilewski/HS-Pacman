@@ -136,16 +136,20 @@ changeDir pacman@(Player plPos@(Vector px py) plDir) dt newDir _
                  centeredPos@(Vector cx cy) = getNearestCenter (plPos `vadd` tileHalf) `vsub` tileHalf
                  tileHalf = Vector (float tileW) (float tileH) `vscale` 0.5
 
+getMoveDelta :: TimeDelta -> Position -> Direction -> Board -> Vector
+getMoveDelta dt pos@(Vector px py) dir board
+    = Vector dx dy where dx = if dir `elem` [X, N, S] then 0
+                              else (case dir of
+                                       E -> if (brickAt board (        (round $ px + plSpeed*dt)) (round py) .&. 2 /= 0) then 0 else  plSpeed*dt
+                                       W -> if (brickAt board (tileW + (round $ px - plSpeed*dt)) (round py) .&. 8 /= 0) then 0 else -plSpeed*dt)
+                         dy = if dir `elem` [X, W, E] then 0
+                              else (case dir of
+                                       S -> if (brickAt board (round px) (        (round $ py + plSpeed*dt)) .&. 4 /= 0) then 0 else  plSpeed*dt
+                                       N -> if (brickAt board (round px) (tileH + (round $ py - plSpeed*dt)) .&. 1 /= 0) then 0 else -plSpeed*dt)
+
 movePacman :: TimeDelta -> Player -> Direction -> Board -> Player
 movePacman dt (Player pos dir) newDir board
-    = Player pos' dir
-      where pos' = (pos `vadd` (offset `vscale` dt))
-            offset = case newDir of
-              N -> Vector 0          (-plSpeed)
-              S -> Vector 0          plSpeed
-              E -> Vector plSpeed    0
-              W -> Vector (-plSpeed) 0
-              X -> Vector 0          0
+    = Player pos' dir where pos' = pos `vadd` getMoveDelta dt pos newDir board
 
 handleEvent :: TimeDelta -> Event -> GameData -> IO(GameData)
 handleEvent dt SDL.NoEvent gd = return gd
