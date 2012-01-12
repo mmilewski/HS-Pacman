@@ -139,8 +139,8 @@ movePacman dt (Player pos dir) newDir board
             offset = case newDir of
               N -> Vector 0          (-plSpeed)
               S -> Vector 0          plSpeed
-              W -> Vector plSpeed    0
-              E -> Vector (-plSpeed) 0
+              E -> Vector plSpeed    0
+              W -> Vector (-plSpeed) 0
               X -> Vector 0          0
 
 handleEvent :: TimeDelta -> Event -> GameData -> IO(GameData)
@@ -148,8 +148,8 @@ handleEvent dt SDL.NoEvent gd = return gd
 handleEvent dt SDL.Quit gd = exitWith ExitSuccess
 handleEvent dt (KeyDown (Keysym _ _ 'q')) gd = exitWith ExitSuccess
 handleEvent dt (KeyDown keysym) gd@(GameData _ pacman board) = handleKeyDown keysym where
-    handleKeyDown (Keysym SDLK_RIGHT _ _) = return $ gd{pacman = changeDir pacman dt W board}
-    handleKeyDown (Keysym SDLK_LEFT  _ _) = return $ gd{pacman = changeDir pacman dt E board}
+    handleKeyDown (Keysym SDLK_RIGHT _ _) = return $ gd{pacman = changeDir pacman dt E board}
+    handleKeyDown (Keysym SDLK_LEFT  _ _) = return $ gd{pacman = changeDir pacman dt W board}
     handleKeyDown (Keysym SDLK_DOWN  _ _) = return $ gd{pacman = changeDir pacman dt S board}
     handleKeyDown (Keysym SDLK_UP    _ _) = return $ gd{pacman = changeDir pacman dt N board}
     handleKeyDown _                       = return gd
