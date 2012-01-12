@@ -21,9 +21,11 @@ type Screen = Surface
 boardSize = (boardWidth, boardHeight)
 (tileW, tileH) = (windowWidth `div` boardWidth, windowHeight `div` boardHeight)
 
+plSpeed = 20         -- player/pacman's speed (px/s)
+
 img_placeholder = img_smile
 img_smile = "smile"
-img_pacman = img_smile --"pacman"
+img_pacman = "pacman"
 img_board_empty = "board-empty"
 img_board_bottom = "board-bottom"
 img_board_right = "board-right"
@@ -32,6 +34,8 @@ img_board_top = "board-top"
 img_all = [img_smile, img_pacman, img_board_empty, img_board_bottom, img_board_right, img_board_left, img_board_top]
 
 roundFromIntegral x = round $ fromIntegral x
+float :: Int -> Float      -- konwersja Int ~~> Float
+float = fromIntegral
 
 loadImages :: IO (SurfacesMap)
 loadImages
@@ -39,7 +43,7 @@ loadImages
          return $ fromList $ zip img_all surfaces
 
 display :: GameData -> SurfacesMap -> IO ()
-display (GameData objects (Player plPos) board) imagesMap
+display (GameData objects (Player plPos _) board) imagesMap
     = do screen <- getVideoSurface
          displayBg screen
          displayBoard screen
@@ -70,6 +74,7 @@ display (GameData objects (Player plPos) board) imagesMap
 data Vector = Vector Float Float
 type Position = Vector
 vadd (Vector a b) (Vector c d) = Vector (a + c) (b + d)
+vsub (Vector a b) (Vector c d) = Vector (a - c) (b - d)
 vscale (Vector a b) factor = Vector (a * factor) (b * factor)
 instance Show Vector where
     show (Vector a b) = "[" ++ (show a) ++ ", " ++ (show b) ++ "]"
@@ -81,42 +86,69 @@ moveObjects :: Objects -> TimeDelta -> Objects
 moveObjects objects dt = map move objects
     where move (Vector x y) = Vector x' y where x' = if round x >= windowWidth then 0 else x + 20.0 * dt
 
-data Player = Player { pos :: Vector
+data Direction = N | W | S | E | X deriving (Show, Eq)
+
+data Player = Player { pos :: Vector,
+                       dir :: Direction
                      } deriving (Show)
 
-
-
 type Board = [Int]
+
+brickAt :: Board -> Int -> Int -> Int
+brickAt board x y = List.head $ List.drop n board
+    where n = (roundFromIntegral$ y `div` tileH) * boardWidth + (roundFromIntegral$ x `div` tileW)
+
 data GameData = GameData { objects :: Objects,
                            pacman :: Player,
                            board :: Board
                          } deriving (Show)
 
-{-
-posx' <- posx + velx * dt
+-- -- tak napisałbym w każdym sensownym języku. Niestety Haskell nie ogarnia sytuacji
+-- -- i zmusił mnie do zrobienia brzydkiego obejścia, bleh :(
+-- getNearestCenter plPos@(Vector x y) = Vector x' y' where x' = (floor$ x/tileW) * tileW + tileW/2
+--                                                          y' = (floor$ y/tileH) * tileH + tileH/2
+getNearestCenter (Vector x y) = Vector (findCoordX x) (findCoordY y)
+findCoordX :: Float -> Float
+findCoordX x = if 0 <= x && x < (float tileW) then (float tileW)/2 else (float tileW) + findCoordX (x - float tileW)
+findCoordY :: Float -> Float
+findCoordY x = if 0 <= x && x < (float tileH) then (float tileH)/2 else (float tileH) + findCoordY (x - float tileH)
 
-w lewo
-   można iść dopóki  brick(posx', posy) == brick(posx, posy)
+changeDir :: Player -> TimeDelta -> Direction -> Board -> Player
+changeDir pacman@(Player plPos@(Vector px py) plDir) dt newDir _
+    = if plDir == newDir then pacman
+      else if (plDir, newDir) `elem` [(N,S), (S,N), (W,E), (E,W)] || newDir == X then pacman {dir = newDir}
+      else if plDir `elem` [E, W] && 15 < (abs $ cx - px) then pacman
+      else if plDir `elem` [S, N] && 15 < (abs $ cy - py) then pacman
+      else pacman {dir = newDir, pos = plPos'}
+           where plPos' = centeredPos
+                 centeredPos@(Vector cx cy) = getNearestCenter (plPos `vadd` tileHalf) `vsub` tileHalf
+                 tileHalf = Vector (float tileW) (float tileH) `vscale` 0.5
 
-w prawo
-   można iść dopóki  brick(posx'+tileW, posy) == brick(posx+tileW, posy)
--}
-brickAt :: Board -> Int -> Int -> Int
-brickAt board x y = List.head $ List.drop n board
-    where n = (roundFromIntegral$ y `div` tileH) * boardWidth + (roundFromIntegral$ x `div` tileW)
-
-movePlayer :: Player -> Vector -> Player
-movePlayer (Player pos) pos' = Player (vadd pos pos')
+movePacman :: TimeDelta -> Player -> Direction -> Board -> Player
+movePacman dt (Player pos dir) newDir board
+    = Player pos' dir
+      where pos' = pos `vadd` getMoveDelta dt pos newDir board
+            getMoveDelta :: TimeDelta -> Position -> Direction -> Board -> Vector
+            getMoveDelta dt pos@(Vector px py) dir board
+                = Vector dx dy where dx = if dir `elem` [X, N, S] then 0
+                                          else (case dir of
+                                                   E -> if (brickAt board (        (round $ px + plSpeed*dt)) (round py) .&. 2 /= 0) then 0 else  plSpeed*dt
+                                                   W -> if (brickAt board (tileW + (round $ px - plSpeed*dt)) (round py) .&. 8 /= 0) then 0 else -plSpeed*dt)
+                                     dy = if dir `elem` [X, W, E] then 0
+                                          else (case dir of
+                                                   S -> if (brickAt board (round px) (        (round $ py + plSpeed*dt)) .&. 4 /= 0) then 0 else  plSpeed*dt
+                                                   N -> if (brickAt board (round px) (tileH + (round $ py - plSpeed*dt)) .&. 1 /= 0) then 0 else -plSpeed*dt)
 
 handleEvent :: TimeDelta -> Event -> GameData -> IO(GameData)
 handleEvent dt SDL.NoEvent gd = return gd
 handleEvent dt SDL.Quit gd = exitWith ExitSuccess
 handleEvent dt (KeyDown (Keysym _ _ 'q')) gd = exitWith ExitSuccess
-handleEvent dt (KeyDown keysym) gd@(GameData objs pacman board) = handleKeyDown keysym where
-    handleKeyDown (Keysym SDLK_RIGHT _ _) = return $ GameData objs (movePlayer pacman (Vector ( 40*dt) 0)) board
-    handleKeyDown (Keysym SDLK_LEFT  _ _) = return $ GameData objs (movePlayer pacman (Vector (-40*dt) 0)) board
-    handleKeyDown (Keysym SDLK_DOWN  _ _) = return $ GameData objs (movePlayer pacman (Vector 0 ( 40*dt))) board
-    handleKeyDown (Keysym SDLK_UP    _ _) = return $ GameData objs (movePlayer pacman (Vector 0 (-40*dt))) board
+handleEvent dt (KeyDown keysym) gd@(GameData _ pacman board) = handleKeyDown keysym where
+    updatePacmanDir dir = return $ gd{pacman = changeDir pacman dt dir board}
+    handleKeyDown (Keysym SDLK_RIGHT _ _) = updatePacmanDir E
+    handleKeyDown (Keysym SDLK_LEFT  _ _) = updatePacmanDir W
+    handleKeyDown (Keysym SDLK_DOWN  _ _) = updatePacmanDir S
+    handleKeyDown (Keysym SDLK_UP    _ _) = updatePacmanDir N
     handleKeyDown _                       = return gd
 handleEvent _ _ gd = return gd
 
@@ -126,10 +158,11 @@ loop startTime gameData images
          let dt = (fromIntegral (endTime - startTime)) / (10^11)
 
          event <- pollEvent
-         (GameData objects pacman board) <- handleEvent dt event gameData
+         (GameData objects pacman@(Player _ dir) board) <- handleEvent dt event gameData
          let objects' = moveObjects objects dt
+         let pacman' = movePacman dt pacman dir board
 
-         let gameData' = (GameData objects' pacman board)
+         let gameData' = (GameData objects' pacman' board)
          display gameData' images
          loop endTime gameData' images
 
@@ -156,15 +189,15 @@ main = withInit [InitVideo] $
        startTime <- getCPUTime
        loop startTime (GameData objects player board) images
        where objects = [ (Vector 50 50), (Vector 350 150) ]
-             player = (Player $ Vector 31 100)
+             player = (Player (Vector 150 100) X)
              board = [ 9,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  3,
                        8,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  2,
-                       8,  0,  0,  0,  2,  0,  0,  0,  0,  0,  0,  1,  3,  0,  0,  2,
-                       8,  0,  0, 15,  2,  0,  0,  0,  2,  0,  0,  0,  2,  0,  0,  2,
-                       8,  0,  0,  0,  2,  0,  0,  0,  2,  0,  0,  0,  2,  0,  0,  2,
+                       8,  0,  0,  4,  2,  8,  0,  0,  0,  0,  0,  1,  3,  0,  0,  2,
+                       8,  0,  2, 15, 10,  8,  0,  0,  2,  0,  0,  0,  2,  0,  0,  2,
+                       8,  0,  0,  1,  2,  8,  0,  0,  2,  0,  0,  0,  2,  0,  0,  2,
                        8,  0,  0,  0,  0,  0,  0,  0,  2,  0,  0,  0,  2,  0,  0,  2,
                        8,  0,  0,  2,  0,  2,  0,  0,  2,  0, 12,  4,  6,  4,  6,  2,
-                       8,  0,  8,  2,  0,  2,  0,  0,  0,  0,  0,  0,  0,  0,  0,  2,
+                       8,  2,  8,  2,  0,  2,  0,  0,  0,  0,  0,  0,  0,  0,  0,  2,
                        8,  0, 12,  6,  4,  6,  0,  0,  0,  0,  0,  0,  0,  0,  0,  2,
                        8,  0,  0,  0,  0,  0,  0,  0,  0,  2,  0,  0,  0,  0,  0,  2,
                        8,  0,  0,  0,  2,  0,  0,  0,  0,  2,  0,  0,  0,  0,  0,  2,
