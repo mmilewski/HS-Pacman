@@ -9,6 +9,9 @@
 @ poruszanie pacamanem po planszy
 @ kolizje pacamana z planszą
 
+* wyświetlanie kropek do zbierania
+* gracz może zbierać kropki
+
 * wyświetlanie potwora
 * kolizje potwora z planszą
 * potwór goni gracza
@@ -16,6 +19,7 @@
 * potwór może być w dwóch stanach: goni, ucieka
 * jak potwór ucieka, to ma mniejszą prędkość
 
+* gracz może wziąć bonus, który pozwoli mu śledzić i konsumować potwory
 
 * main menu
 * splash
