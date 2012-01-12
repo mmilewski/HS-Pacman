@@ -129,7 +129,7 @@ changeDir :: Player -> TimeDelta -> Direction -> Board -> Player
 changeDir pacman@(Player plPos plDir) dt newDir board
     = if plDir == newDir then pacman
       else pacman {dir = newDir, pos = plPos'}
-           where plPos' = getNearestCenter plPos `vsub` tileHalf
+           where plPos' = getNearestCenter (plPos `vadd` tileHalf) `vsub` tileHalf
                  tileHalf = Vector (float tileW) (float tileH) `vscale` 0.5
 
 movePacman :: TimeDelta -> Player -> Direction -> Board -> Player
