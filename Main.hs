@@ -187,9 +187,24 @@ main = withInit [InitVideo] $
        enableUnicode True
        images <- loadImages
        startTime <- getCPUTime
-       loop startTime (GameData objects player board) images
+       loop startTime (GameData objects player board1) images
        where objects = [ (Vector 50 50), (Vector 350 150) ]
-             player = (Player (Vector 150 100) X)
+             player = (Player (Vector 0 0) X)
+             t=1; r=2; b=4; l=8
+             tl=t+l; tr=t+r; bl=b+l; br=b+r; lr=l+r; tb=t+b
+
+             board1 = [tl,  t, tb, tb,  t, tb, tb, tb, tr, tl,  t, tr,  t,  t,  t, tr,
+                       lr, lr, tl, tb,  0, tb, tb, tb,  0, br, lr, lr,  0,  0,  0,  r,
+                       lr, bl,  r, tl, br, tl,  t, tr,  l, tr, lr, lr,  0,  0,  0,  r,
+                        l, tb,  r, lr, tl, br, lr, lr, bl, br, lr, lr,  0,  0,  0,  r,
+                        l, tb, br, lr, bl, tr, lr, lr, tl, tb, br, lr,  0,  0,  0,  r,
+                        l, tb, tr, bl, tr, lr, lr, bl,  r, tl, tr, lr,  0,  0,  0,  r,
+                       bl, tb,  b, tb,  b, br, bl, tb, br, bl,  b, br,  0,  0,  0,  r,
+                       tl,  t,  t,  t,  t,  t,  t,  t,  t,  t,  t,  t,  t,  t,  t, tr,
+                        l,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  r,
+                        l,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  r,
+                        l,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  r,
+                       bl,  b,  b,  b,  b,  b,  b,  b,  b,  b,  b,  b,  b,  b,  b, br]
              board = [ 9,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  3,
                        8,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  2,
                        8,  0,  0,  4,  2,  8,  0,  0,  0,  0,  0,  1,  3,  0,  0,  2,
