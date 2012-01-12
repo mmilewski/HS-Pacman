@@ -25,7 +25,7 @@ plSpeed = 20         -- player/pacman's speed (px/s)
 
 img_placeholder = img_smile
 img_smile = "smile"
-img_pacman = img_smile --"pacman"
+img_pacman = "pacman"
 img_board_empty = "board-empty"
 img_board_bottom = "board-bottom"
 img_board_right = "board-right"
