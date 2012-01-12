@@ -86,40 +86,28 @@ moveObjects :: Objects -> TimeDelta -> Objects
 moveObjects objects dt = map move objects
     where move (Vector x y) = Vector x' y where x' = if round x >= windowWidth then 0 else x + 20.0 * dt
 
-data Direction = N | W | S | E | X deriving (Show, Eq, Ord)
+data Direction = N | W | S | E | X deriving (Show, Eq)
 
 data Player = Player { pos :: Vector,
                        dir :: Direction
                      } deriving (Show)
 
-
-
 type Board = [Int]
+
+brickAt :: Board -> Int -> Int -> Int
+brickAt board x y = List.head $ List.drop n board
+    where n = (roundFromIntegral$ y `div` tileH) * boardWidth + (roundFromIntegral$ x `div` tileW)
+
 data GameData = GameData { objects :: Objects,
                            pacman :: Player,
                            board :: Board
                          } deriving (Show)
 
-{-
-posx' <- posx + velx * dt
-
-w lewo
-   można iść dopóki  brick(posx', posy) == brick(posx, posy)
-
-w prawo
-   można iść dopóki  brick(posx'+tileW, posy) == brick(posx+tileW, posy)
--}
-brickAt :: Board -> Int -> Int -> Int
-brickAt board x y = List.head $ List.drop n board
-    where n = (roundFromIntegral$ y `div` tileH) * boardWidth + (roundFromIntegral$ x `div` tileW)
-
-
 -- -- tak napisałbym w każdym sensownym języku. Niestety Haskell nie ogarnia sytuacji
 -- -- i zmusił mnie do zrobienia brzydkiego obejścia, bleh :(
 -- getNearestCenter plPos@(Vector x y) = Vector x' y' where x' = (floor$ x/tileW) * tileW + tileW/2
 --                                                          y' = (floor$ y/tileH) * tileH + tileH/2
-getNearestCenter plPos@(Vector x y) = Vector x' y' where x' = findCoordX x
-                                                         y' = findCoordY y
+getNearestCenter (Vector x y) = Vector (findCoordX x) (findCoordY y)
 findCoordX :: Float -> Float
 findCoordX x = if 0 <= x && x < (float tileW) then (float tileW)/2 else (float tileW) + findCoordX (x - float tileW)
 findCoordY :: Float -> Float
@@ -136,30 +124,31 @@ changeDir pacman@(Player plPos@(Vector px py) plDir) dt newDir _
                  centeredPos@(Vector cx cy) = getNearestCenter (plPos `vadd` tileHalf) `vsub` tileHalf
                  tileHalf = Vector (float tileW) (float tileH) `vscale` 0.5
 
-getMoveDelta :: TimeDelta -> Position -> Direction -> Board -> Vector
-getMoveDelta dt pos@(Vector px py) dir board
-    = Vector dx dy where dx = if dir `elem` [X, N, S] then 0
-                              else (case dir of
-                                       E -> if (brickAt board (        (round $ px + plSpeed*dt)) (round py) .&. 2 /= 0) then 0 else  plSpeed*dt
-                                       W -> if (brickAt board (tileW + (round $ px - plSpeed*dt)) (round py) .&. 8 /= 0) then 0 else -plSpeed*dt)
-                         dy = if dir `elem` [X, W, E] then 0
-                              else (case dir of
-                                       S -> if (brickAt board (round px) (        (round $ py + plSpeed*dt)) .&. 4 /= 0) then 0 else  plSpeed*dt
-                                       N -> if (brickAt board (round px) (tileH + (round $ py - plSpeed*dt)) .&. 1 /= 0) then 0 else -plSpeed*dt)
-
 movePacman :: TimeDelta -> Player -> Direction -> Board -> Player
 movePacman dt (Player pos dir) newDir board
-    = Player pos' dir where pos' = pos `vadd` getMoveDelta dt pos newDir board
+    = Player pos' dir
+      where pos' = pos `vadd` getMoveDelta dt pos newDir board
+            getMoveDelta :: TimeDelta -> Position -> Direction -> Board -> Vector
+            getMoveDelta dt pos@(Vector px py) dir board
+                = Vector dx dy where dx = if dir `elem` [X, N, S] then 0
+                                          else (case dir of
+                                                   E -> if (brickAt board (        (round $ px + plSpeed*dt)) (round py) .&. 2 /= 0) then 0 else  plSpeed*dt
+                                                   W -> if (brickAt board (tileW + (round $ px - plSpeed*dt)) (round py) .&. 8 /= 0) then 0 else -plSpeed*dt)
+                                     dy = if dir `elem` [X, W, E] then 0
+                                          else (case dir of
+                                                   S -> if (brickAt board (round px) (        (round $ py + plSpeed*dt)) .&. 4 /= 0) then 0 else  plSpeed*dt
+                                                   N -> if (brickAt board (round px) (tileH + (round $ py - plSpeed*dt)) .&. 1 /= 0) then 0 else -plSpeed*dt)
 
 handleEvent :: TimeDelta -> Event -> GameData -> IO(GameData)
 handleEvent dt SDL.NoEvent gd = return gd
 handleEvent dt SDL.Quit gd = exitWith ExitSuccess
 handleEvent dt (KeyDown (Keysym _ _ 'q')) gd = exitWith ExitSuccess
 handleEvent dt (KeyDown keysym) gd@(GameData _ pacman board) = handleKeyDown keysym where
-    handleKeyDown (Keysym SDLK_RIGHT _ _) = return $ gd{pacman = changeDir pacman dt E board}
-    handleKeyDown (Keysym SDLK_LEFT  _ _) = return $ gd{pacman = changeDir pacman dt W board}
-    handleKeyDown (Keysym SDLK_DOWN  _ _) = return $ gd{pacman = changeDir pacman dt S board}
-    handleKeyDown (Keysym SDLK_UP    _ _) = return $ gd{pacman = changeDir pacman dt N board}
+    updatePacmanDir dir = return $ gd{pacman = changeDir pacman dt dir board}
+    handleKeyDown (Keysym SDLK_RIGHT _ _) = updatePacmanDir E
+    handleKeyDown (Keysym SDLK_LEFT  _ _) = updatePacmanDir W
+    handleKeyDown (Keysym SDLK_DOWN  _ _) = updatePacmanDir S
+    handleKeyDown (Keysym SDLK_UP    _ _) = updatePacmanDir N
     handleKeyDown _                       = return gd
 handleEvent _ _ gd = return gd
 
