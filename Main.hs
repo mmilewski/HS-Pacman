@@ -126,10 +126,14 @@ findCoordY :: Float -> Float
 findCoordY x = if 0 <= x && x < (float tileH) then (float tileH)/2 else (float tileH) + findCoordY (x - float tileH)
 
 changeDir :: Player -> TimeDelta -> Direction -> Board -> Player
-changeDir pacman@(Player plPos plDir) dt newDir board
+changeDir pacman@(Player plPos@(Vector px py) plDir) dt newDir _
     = if plDir == newDir then pacman
+      else if (plDir, newDir) `elem` [(N,S), (S,N), (W,E), (E,W)] || newDir == X then pacman {dir = newDir}
+      else if plDir `elem` [E, W] && 15 < (abs $ cx - px) then pacman
+      else if plDir `elem` [S, N] && 15 < (abs $ cy - py) then pacman
       else pacman {dir = newDir, pos = plPos'}
-           where plPos' = getNearestCenter (plPos `vadd` tileHalf) `vsub` tileHalf
+           where plPos' = centeredPos
+                 centeredPos@(Vector cx cy) = getNearestCenter (plPos `vadd` tileHalf) `vsub` tileHalf
                  tileHalf = Vector (float tileW) (float tileH) `vscale` 0.5
 
 movePacman :: TimeDelta -> Player -> Direction -> Board -> Player
