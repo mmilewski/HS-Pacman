@@ -22,7 +22,7 @@ type Screen = Surface
 boardSize = (boardWidth, boardHeight)
 (tileW, tileH) = (windowWidth `div` boardWidth, windowHeight `div` boardHeight)
 
-plSpeed = 20         -- player/pacman's speed (px/s)
+plSpeed = 16         -- player/pacman's speed (px/s)
 
 img_placeholder = img_smile
 img_smile = "smile"
