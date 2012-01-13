@@ -69,6 +69,7 @@ data Vector = Vector Float Float
 type Position = Vector
 vadd (Vector a b) (Vector c d) = Vector (a + c) (b + d)
 vsub (Vector a b) (Vector c d) = Vector (a - c) (b - d)
+vlen (Vector a b) = sqrt $ (a*a + b*b)
 vscale (Vector a b) factor = Vector (a * factor) (b * factor)
 instance Show Vector where
     show (Vector a b) = "[" ++ (show a) ++ ", " ++ (show b) ++ "]"
@@ -86,6 +87,9 @@ data Direction = N | W | S | E | X deriving (Show, Eq)
 data Player = Player { pos :: Vector,
                        dir :: Direction
                      } deriving (Show)
+
+getPlPos :: Player -> Vector
+getPlPos Player{pos=p} = p
 
 type Board = [Int]
 
@@ -157,8 +161,9 @@ loop startTime gameData images
                                    (GameData objects balls pacman board) <- handleEvent dt event gameData
                                    let objects' = moveObjects objects dt
                                    let pacman' = movePacman dt pacman board
-                                   return$ GameData objects' balls pacman' board
-
+                                   let collidesWithPlayer ball = 10 > vlen (ball `vsub` getPlPos pacman)
+                                   let (consumed, notConsumed) = List.partition collidesWithPlayer balls
+                                   return$ GameData objects' notConsumed pacman' board
 
 assert :: Show a => Eq a => a -> a -> String -> IO()
 assert expected actual msg = if expected == actual then return () else error $ concat ["\nexpected: ", (show expected), "\nactual: ", (show actual), "\ndata: ", msg]
