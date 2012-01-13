@@ -119,20 +119,18 @@ changeDir pacman@(Player plPos@(Vector px py) plDir) dt newDir _
                  centeredPos@(Vector cx cy) = getNearestCenter (plPos `vadd` tileHalf) `vsub` tileHalf
                  tileHalf = Vector (float tileW) (float tileH) `vscale` 0.5
 
-movePacman :: TimeDelta -> Player -> Direction -> Board -> Player
-movePacman dt (Player pos dir) newDir board
-    = Player pos' dir
-      where pos' = pos `vadd` getMoveDelta dt pos newDir board
-            getMoveDelta :: TimeDelta -> Position -> Direction -> Board -> Vector
-            getMoveDelta dt pos@(Vector px py) dir board
-                = Vector dx dy where dx = if dir `elem` [X, N, S] then 0
-                                          else (case dir of
-                                                   E -> if (brickAt board (        (round $ px + plSpeed*dt)) (round py) .&. 2 /= 0) then 0 else  plSpeed*dt
-                                                   W -> if (brickAt board (tileW + (round $ px - plSpeed*dt)) (round py) .&. 8 /= 0) then 0 else -plSpeed*dt)
-                                     dy = if dir `elem` [X, W, E] then 0
-                                          else (case dir of
-                                                   S -> if (brickAt board (round px) (        (round $ py + plSpeed*dt)) .&. 4 /= 0) then 0 else  plSpeed*dt
-                                                   N -> if (brickAt board (round px) (tileH + (round $ py - plSpeed*dt)) .&. 1 /= 0) then 0 else -plSpeed*dt)
+movePacman :: TimeDelta -> Player -> Board -> Player
+movePacman dt pacman@(Player pos@(Vector px py) dir) board
+    = pacman{pos=pos `vadd` Vector dx dy}
+      where
+        dx = if dir `elem` [X, N, S] then 0
+             else (case dir of
+                      E -> if (brickAt board (        (round $ px + plSpeed*dt)) (round py) .&. 2 /= 0) then 0 else  plSpeed*dt
+                      W -> if (brickAt board (tileW + (round $ px - plSpeed*dt)) (round py) .&. 8 /= 0) then 0 else -plSpeed*dt)
+        dy = if dir `elem` [X, W, E] then 0
+             else (case dir of
+                      S -> if (brickAt board (round px) (        (round $ py + plSpeed*dt)) .&. 4 /= 0) then 0 else  plSpeed*dt
+                      N -> if (brickAt board (round px) (tileH + (round $ py - plSpeed*dt)) .&. 1 /= 0) then 0 else -plSpeed*dt)
 
 handleEvent :: TimeDelta -> Event -> GameData -> IO(GameData)
 handleEvent dt SDL.NoEvent gd = return gd
@@ -151,15 +149,16 @@ loop :: CpuTime -> GameData -> SurfacesMap -> IO ()
 loop startTime gameData images
     = do endTime <- getCPUTime
          let dt = (fromIntegral (endTime - startTime)) / (10^11)
-
-         event <- pollEvent
-         (GameData objects balls pacman@(Player _ dir) board) <- handleEvent dt event gameData
-         let objects' = moveObjects objects dt
-         let pacman' = movePacman dt pacman dir board
-
-         let gameData' = (GameData objects' balls pacman' board)
+         gameData' <- update gameData dt
          display gameData' images
          loop endTime gameData' images
+         where
+           update gameData dt = do event <- pollEvent
+                                   (GameData objects balls pacman board) <- handleEvent dt event gameData
+                                   let objects' = moveObjects objects dt
+                                   let pacman' = movePacman dt pacman board
+                                   return$ GameData objects' balls pacman' board
+
 
 assert :: Show a => Eq a => a -> a -> String -> IO()
 assert expected actual msg = if expected == actual then return () else error $ concat ["\nexpected: ", (show expected), "\nactual: ", (show actual), "\ndata: ", msg]
