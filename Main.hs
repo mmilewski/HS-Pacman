@@ -9,6 +9,7 @@ import Data.List as List hiding (lookup)
 import Data.Map (Map, fromList, lookup)
 import Data.Maybe (fromJust)
 import Data.Bits ((.&.))
+import Ix (range)
 
 type SurfacesMap = Map String Surface
 type TimeDelta = Float
@@ -26,16 +27,19 @@ plSpeed = 20         -- player/pacman's speed (px/s)
 img_placeholder = img_smile
 img_smile = "smile"
 img_pacman = "pacman"
+img_enemy = img_placeholder
+img_ball = "ball"
 img_board_empty = "board-empty"
 img_board_bottom = "board-bottom"
 img_board_right = "board-right"
 img_board_left = "board-left"
 img_board_top = "board-top"
-img_all = [img_smile, img_pacman, img_board_empty, img_board_bottom, img_board_right, img_board_left, img_board_top]
+img_all = [img_ball, img_smile, img_enemy, img_pacman, img_board_empty, img_board_bottom, img_board_right, img_board_left, img_board_top]
 
-roundFromIntegral x = round $ fromIntegral x
 float :: Int -> Float      -- konwersja Int ~~> Float
 float = fromIntegral
+
+mignore a = a >> return ()
 
 loadImages :: IO (SurfacesMap)
 loadImages
@@ -43,33 +47,23 @@ loadImages
          return $ fromList $ zip img_all surfaces
 
 display :: GameData -> SurfacesMap -> IO ()
-display (GameData objects (Player plPos _) board) imagesMap
-    = do screen <- getVideoSurface
-         displayBg screen
-         displayBoard screen
-         displayObjects screen
-         displayPlayer screen
-         SDL.flip screen
+display (GameData objects balls (Player plPos _) board) imagesMap
+    = getVideoSurface >>= (\screen -> displayAt screen >> SDL.flip screen)
       where
-        displayBg screen = mapRGB (surfaceGetPixelFormat screen) 0x1F 0x1F 0x1F >>= (\grey -> fillRect screen Nothing grey)
-        displayBoard screen = mapM_ (\i_p -> displayBoardPiece screen imagesMap boardSize i_p) $ zip (iterate (+1) 0) board
-        displayObjects screen = do let placeholder = fromJust $ lookup img_placeholder imagesMap
-                                   mapM_ (\objPos -> displayObject screen objPos placeholder) objects
-        displayPlayer screen = displayObject screen plPos (fromJust $ lookup img_pacman imagesMap)
-
-        displayObject :: Screen -> Position -> Surface -> IO ()
-        displayObject screen (Vector x y) image = do blitSurface image Nothing screen (Just $ Rect (round x) (round y) 0 0 ) >> return ()
-        displayBoardPiece :: Surface -> SurfacesMap -> (Int, Int) -> (Int, Int) -> IO ()
-        displayBoardPiece screen imagesMap (boardWidth, boardHeight) (i, piece)
-            = do blit $ surfaceByPiece (piece .&. 1)
-                 blit $ surfaceByPiece (piece .&. 2)
-                 blit $ surfaceByPiece (piece .&. 4)
-                 blit $ surfaceByPiece (piece .&. 8)
-                 where blit surface = blitSurface surface Nothing screen (Just $ Rect (tileW * col) (tileH * row) 0 0) >> return ()
-                       surfaceByPiece p = fromJust $ lookup (fromJust $ lookup p boardMap) imagesMap
-                       boardMap = fromList [(0, img_board_empty), (1, img_board_top), (2, img_board_right), (4, img_board_bottom), (8, img_board_left)]
-                       row = fromIntegral $ i `div` boardWidth
-                       col = fromIntegral $ i `mod` boardWidth
+        displayAt screen = displayBg >> displayBoard >> displayBalls >> displayObjects >> displayPlayer
+          where
+            displayBg      = mapRGB (surfaceGetPixelFormat screen) 0x1F 0x1F 0x1F >>= (\grey -> fillRect screen Nothing grey)
+            displayBoard   = mapM_ (\i_p -> displayBoardPiece imagesMap i_p) $ zip (iterate (+1) 0) board
+            displayBalls   = mapM_ (displayImage img_ball) balls
+            displayObjects = mapM_ (displayImage img_enemy) objects
+            displayPlayer  =       (displayImage img_pacman) plPos
+            displayImage imgName (Vector x y) = mignore$ blitSurface (surfaceByName imgName) Nothing screen (Just $ Rect (round x) (round y) 0 0 )
+            surfaceByName imgName = fromJust $ lookup imgName imagesMap
+            displayBoardPiece imagesMap (i, piece) = mapM_ blit [(piece .&. 1), (piece .&. 2), (piece .&. 4), (piece .&. 8)]
+                     where blit p = mignore$ blitSurface (surfaceByName (nameOf p)) Nothing screen (Just $ Rect (tileW * col) (tileH * row) 0 0)
+                           nameOf p = fromJust $ lookup p $ fromList [(0, img_board_empty), (1, img_board_top), (2, img_board_right),
+                                                                      (4, img_board_bottom), (8, img_board_left)]
+                           (row, col) = divMod i boardWidth
 
 data Vector = Vector Float Float
 type Position = Vector
@@ -81,6 +75,7 @@ instance Show Vector where
 
 type Object = Vector
 type Objects = [Object]
+type Balls = Objects
 
 moveObjects :: Objects -> TimeDelta -> Objects
 moveObjects objects dt = map move objects
@@ -95,10 +90,10 @@ data Player = Player { pos :: Vector,
 type Board = [Int]
 
 brickAt :: Board -> Int -> Int -> Int
-brickAt board x y = List.head $ List.drop n board
-    where n = (roundFromIntegral$ y `div` tileH) * boardWidth + (roundFromIntegral$ x `div` tileW)
+brickAt board col row = board !! ((fromIntegral$ row `div` tileH) * boardWidth + (fromIntegral$ col `div` tileW))
 
 data GameData = GameData { objects :: Objects,
+                           balls :: Balls,
                            pacman :: Player,
                            board :: Board
                          } deriving (Show)
@@ -143,7 +138,7 @@ handleEvent :: TimeDelta -> Event -> GameData -> IO(GameData)
 handleEvent dt SDL.NoEvent gd = return gd
 handleEvent dt SDL.Quit gd = exitWith ExitSuccess
 handleEvent dt (KeyDown (Keysym _ _ 'q')) gd = exitWith ExitSuccess
-handleEvent dt (KeyDown keysym) gd@(GameData _ pacman board) = handleKeyDown keysym where
+handleEvent dt (KeyDown keysym) gd@(GameData _ _ pacman board) = handleKeyDown keysym where
     updatePacmanDir dir = return $ gd{pacman = changeDir pacman dt dir board}
     handleKeyDown (Keysym SDLK_RIGHT _ _) = updatePacmanDir E
     handleKeyDown (Keysym SDLK_LEFT  _ _) = updatePacmanDir W
@@ -158,11 +153,11 @@ loop startTime gameData images
          let dt = (fromIntegral (endTime - startTime)) / (10^11)
 
          event <- pollEvent
-         (GameData objects pacman@(Player _ dir) board) <- handleEvent dt event gameData
+         (GameData objects balls pacman@(Player _ dir) board) <- handleEvent dt event gameData
          let objects' = moveObjects objects dt
          let pacman' = movePacman dt pacman dir board
 
-         let gameData' = (GameData objects' pacman' board)
+         let gameData' = (GameData objects' balls pacman' board)
          display gameData' images
          loop endTime gameData' images
 
@@ -187,8 +182,9 @@ main = withInit [InitVideo] $
        enableUnicode True
        images <- loadImages
        startTime <- getCPUTime
-       loop startTime (GameData objects player board1) images
+       loop startTime (GameData objects balls player board1) images
        where objects = [ (Vector 50 50), (Vector 350 150) ]
+             balls = [ Vector (float x * 50.0) (float y * 50.0) | x <- range (0, 12-1), y <- range(0, 7-1) ]
              player = (Player (Vector 0 0) X)
              t=1; r=2; b=4; l=8
              tl=t+l; tr=t+r; bl=b+l; br=b+r; lr=l+r; tb=t+b
