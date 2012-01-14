@@ -71,8 +71,14 @@ makeBall pos = pos
 type Enemy = Vector
 type Enemies = [Enemy]
 
+enChaseSpeed = plSpeed - 1
+enEscapeSpeed = plSpeed - 3
+
 makeEnemy :: Vector -> Ball
 makeEnemy pos = pos
+
+enUpdate :: Enemy -> TimeDelta -> Player -> Board -> Enemy
+enUpdate enemy@(Vector x y) dt pacman board = Vector (x - dt * enChaseSpeed) y
 
 ---- Player
 data Direction = N | W | S | E | X deriving (Show, Eq)
@@ -164,10 +170,11 @@ gdUpdate :: GameData -> TimeDelta -> IO(GameData)
 gdUpdate gameData dt
     = do event <- pollEvent
          (GameData balls pacman enemies board) <- gdHandleEvent gameData dt event
-         let pacman' = plMove pacman dt board
+         let pacman'  = plMove pacman dt board
+         let enemies' = map (\e -> enUpdate e dt pacman board) enemies
          let collidesWithPlayer ball = 10 > vlen (ball `vsub` plGetPos pacman)
          let (consumed, notConsumed) = List.partition collidesWithPlayer balls
-         return$ GameData notConsumed pacman' enemies board
+         return$ GameData notConsumed pacman' enemies' board
 
 ---- Main
 loop :: CpuTime -> GameData -> SurfacesMap -> IO ()
