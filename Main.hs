@@ -27,7 +27,7 @@ plSpeed = 16         -- player/pacman's speed (px/s)
 img_placeholder = img_smile
 img_smile = "smile"
 img_pacman = "pacman"
-img_enemy = img_placeholder
+img_enemy = "enemy"
 img_ball = "ball"
 img_board_empty = "board-empty"
 img_board_bottom = "board-bottom"
@@ -47,14 +47,15 @@ loadImages
          return $ fromList $ zip img_all surfaces
 
 display :: GameData -> SurfacesMap -> IO ()
-display (GameData objects balls (Player plPos _) board) imagesMap
+display (GameData objects balls (Player plPos _) enemies board) imagesMap
     = getVideoSurface >>= (\screen -> displayAt screen >> SDL.flip screen)
       where
-        displayAt screen = displayBg >> displayBoard >> displayBalls >> displayObjects >> displayPlayer
+        displayAt screen = displayBg >> displayBoard >> displayBalls >> displayEnemies >> displayObjects >> displayPlayer
           where
             displayBg      = mapRGB (surfaceGetPixelFormat screen) 0x1F 0x1F 0x1F >>= (\grey -> fillRect screen Nothing grey)
             displayBoard   = mapM_ (\i_p -> displayBoardPiece imagesMap i_p) $ zip (iterate (+1) 0) board
             displayBalls   = mapM_ (displayImage img_ball) balls
+            displayEnemies = mapM_ (displayImage img_enemy) enemies
             displayObjects = mapM_ (displayImage img_enemy) objects
             displayPlayer  =       (displayImage img_pacman) plPos
             displayImage imgName (Vector x y) = mignore$ blitSurface (surfaceByName imgName) Nothing screen (Just $ Rect (round x) (round y) 0 0 )
@@ -77,6 +78,10 @@ instance Show Vector where
 type Object = Vector
 type Objects = [Object]
 type Balls = Objects
+type Enemy = Vector
+type Enemies = [Enemy]
+
+makeEnemy (Vector x y) = Vector x y
 
 moveObjects :: Objects -> TimeDelta -> Objects
 moveObjects objects dt = map move objects
@@ -99,6 +104,7 @@ brickAt board col row = board !! ((fromIntegral$ row `div` tileH) * boardWidth +
 data GameData = GameData { objects :: Objects,
                            balls :: Balls,
                            pacman :: Player,
+                           enemies :: Enemies,
                            board :: Board
                          } deriving (Show)
 
@@ -140,7 +146,7 @@ handleEvent :: TimeDelta -> Event -> GameData -> IO(GameData)
 handleEvent dt SDL.NoEvent gd = return gd
 handleEvent dt SDL.Quit gd = exitWith ExitSuccess
 handleEvent dt (KeyDown (Keysym _ _ 'q')) gd = exitWith ExitSuccess
-handleEvent dt (KeyDown keysym) gd@(GameData _ _ pacman board) = handleKeyDown keysym where
+handleEvent dt (KeyDown keysym) gd@(GameData _ _ pacman _ board) = handleKeyDown keysym where
     updatePacmanDir dir = return $ gd{pacman = changeDir pacman dt dir board}
     handleKeyDown (Keysym SDLK_RIGHT _ _) = updatePacmanDir E
     handleKeyDown (Keysym SDLK_LEFT  _ _) = updatePacmanDir W
@@ -158,12 +164,12 @@ loop startTime gameData images
          loop endTime gameData' images
          where
            update gameData dt = do event <- pollEvent
-                                   (GameData objects balls pacman board) <- handleEvent dt event gameData
+                                   (GameData objects balls pacman enemies board) <- handleEvent dt event gameData
                                    let objects' = moveObjects objects dt
                                    let pacman' = movePacman dt pacman board
                                    let collidesWithPlayer ball = 10 > vlen (ball `vsub` getPlPos pacman)
                                    let (consumed, notConsumed) = List.partition collidesWithPlayer balls
-                                   return$ GameData objects' notConsumed pacman' board
+                                   return$ GameData objects' notConsumed pacman' enemies board
 
 assert :: Show a => Eq a => a -> a -> String -> IO()
 assert expected actual msg = if expected == actual then return () else error $ concat ["\nexpected: ", (show expected), "\nactual: ", (show actual), "\ndata: ", msg]
@@ -186,8 +192,9 @@ main = withInit [InitVideo] $
        enableUnicode True
        images <- loadImages
        startTime <- getCPUTime
-       loop startTime (GameData objects balls player board1) images
+       loop startTime (GameData objects balls player enemies board1) images
        where objects = [ (Vector 50 50), (Vector 350 150) ]
+             enemies = map makeEnemy [(Vector 500 250), (Vector 450 300)]
              balls = [ Vector (float x * 50.0) (float y * 50.0) | x <- range (0, 12-1), y <- range(0, 7-1) ]
              player = (Player (Vector 0 0) X)
              t=1; r=2; b=4; l=8
