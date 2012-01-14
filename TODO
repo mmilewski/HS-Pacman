@@ -18,6 +18,8 @@
 * kolizje potwora z planszą
 * potwór goni gracza
 
+* ładowanie planszy z pliku -- json?
+
 * potwór może być w dwóch stanach: goni, ucieka
 * jak potwór ucieka, to ma mniejszą prędkość
 
