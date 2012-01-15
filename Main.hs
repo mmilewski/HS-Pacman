@@ -44,6 +44,9 @@ loadImages
     = do surfaces <- mapM (\name -> Image.load $ concat ["gfx/", name, ".png"]) img_all
          return $ fromList $ zip img_all surfaces
 
+---- Direction
+data Direction = N | W | S | E | X deriving (Show, Eq)
+
 ---- Vector
 data Vector = Vector Float Float
 type Position = Vector
@@ -68,20 +71,39 @@ makeBall :: Vector -> Ball
 makeBall pos = pos
 
 ---- Enemy
-type Enemy = Vector
+data Enemy = Enemy { enPos :: Vector,
+                     enDir :: Direction
+                   } deriving (Show)
 type Enemies = [Enemy]
 
 enChaseSpeed = plSpeed - 1
 enEscapeSpeed = plSpeed - 3
 
-makeEnemy :: Vector -> Ball
-makeEnemy pos = pos
+makeEnemy :: Vector -> Enemy
+makeEnemy pos = Enemy pos X
+
+enGetPos :: Enemy -> Vector
+enGetPos Enemy{enPos=p} = p
 
 enUpdate :: Enemy -> TimeDelta -> Player -> Board -> Enemy
-enUpdate enemy@(Vector x y) dt pacman board = Vector (x - dt * enChaseSpeed) y
+enUpdate enemy@(Enemy (Vector x y) dir) dt pacman board -- = enemy{enPos = Vector (x - dt * enChaseSpeed) y}
+    = enMove (enemy{enDir=W}) dt board
+
+enMove :: Enemy -> TimeDelta -> Board -> Enemy
+enMove enemy@(Enemy pos@(Vector px py) dir) dt board
+    = enemy{enPos=pos `vadd` Vector dx dy}
+      where
+        dx = if dir `elem` [X, N, S] then 0
+             else (case dir of
+                      E -> if (brickAt board (        (round $ px + speed*dt)) (round py) .&. 2 /= 0) then 0 else  speed*dt
+                      W -> if (brickAt board (tileW + (round $ px - speed*dt)) (round py) .&. 8 /= 0) then 0 else -speed*dt)
+        dy = if dir `elem` [X, W, E] then 0
+             else (case dir of
+                      S -> if (brickAt board (round px) (        (round $ py + speed*dt)) .&. 4 /= 0) then 0 else  speed*dt
+                      N -> if (brickAt board (round px) (tileH + (round $ py - speed*dt)) .&. 1 /= 0) then 0 else -speed*dt)
+        speed = enChaseSpeed
 
 ---- Player
-data Direction = N | W | S | E | X deriving (Show, Eq)
 data Player = Player { pos :: Vector,
                        dir :: Direction
                      } deriving (Show)
@@ -135,7 +157,7 @@ data GameData = GameData { balls :: Balls,
                          } deriving (Show)
 
 gdDisplay :: GameData -> SurfacesMap -> IO ()
-gdDisplay (GameData balls (Player plPos _) enemies board) imagesMap
+gdDisplay (GameData balls pacman enemies board) imagesMap
     = getVideoSurface >>= (\screen -> displayAt screen >> SDL.flip screen)
       where
         displayAt screen = displayBg >> displayBoard >> displayBalls >> displayEnemies >> displayPlayer
@@ -143,8 +165,8 @@ gdDisplay (GameData balls (Player plPos _) enemies board) imagesMap
             displayBg      = mapRGB (surfaceGetPixelFormat screen) 0x1F 0x1F 0x1F >>= (\grey -> fillRect screen Nothing grey)
             displayBoard   = mapM_ (\i_p -> displayBoardPiece imagesMap i_p) $ zip (iterate (+1) 0) board
             displayBalls   = mapM_ (displayImage img_ball) balls
-            displayEnemies = mapM_ (displayImage img_enemy) enemies
-            displayPlayer  =       (displayImage img_pacman) plPos
+            displayEnemies = mapM_ ((displayImage img_enemy) . enGetPos) enemies
+            displayPlayer  =       ((displayImage img_pacman) . plGetPos) pacman
             displayImage imgName (Vector x y) = mignore$ blitSurface (surfaceByName imgName) Nothing screen (Just $ Rect (round x) (round y) 0 0 )
             surfaceByName imgName = fromJust $ lookup imgName imagesMap
             displayBoardPiece imagesMap (i, piece) = mapM_ blit [(piece .&. 1), (piece .&. 2), (piece .&. 4), (piece .&. 8)]
