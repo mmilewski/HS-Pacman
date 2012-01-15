@@ -13,6 +13,7 @@ import Ix (range)
 
 type SurfacesMap = Map String Surface
 type TimeDelta = Float
+type Speed = Float
 type CpuTime = Integer
 type Screen = Surface
 
@@ -49,7 +50,7 @@ loadImages
 data Direction = N | W | S | E | X deriving (Show, Eq)
 
 ---- Vector
-data Vector = Vector Float Float
+data Vector = Vector Float Float deriving (Eq)
 type Position = Vector
 vadd (Vector a b) (Vector c d) = Vector (a + c) (b + d)
 vsub (Vector a b) (Vector c d) = Vector (a - c) (b - d)
@@ -76,22 +77,39 @@ makeBall pos = pos
 
 ---- Enemy
 data Enemy = Enemy { enPos :: Vector,
-                     enDir :: Direction
+                     enDir :: Direction,
+                     enSnap :: Bool        -- czy przyciągać jednostkę do środka pola
                    } deriving (Show)
 type Enemies = [Enemy]
 
-enChaseSpeed = plSpeed - 1
-enEscapeSpeed = plSpeed - 3
+enChaseSpeed = plSpeed - 3
+enEscapeSpeed = plSpeed - 7
 
 makeEnemy :: Vector -> Enemy
-makeEnemy pos = Enemy pos X
+makeEnemy pos = Enemy pos X False
 
 enGetPos :: Enemy -> Vector
 enGetPos Enemy{enPos=p} = p
 
+enSnapToCenter :: Enemy -> Enemy
+enSnapToCenter enemy@Enemy{enPos=p, enSnap=snap}
+    = if snap && vlen (p `vsub` centeredPos) < snapDistance then enemy{enPos = centeredPos,
+                                                                       enSnap = False}
+      else enemy {enSnap = True}
+        where centeredPos = getNearestCenter (p `vadd` tileHalf) `vsub` tileHalf
+              snapDistance = 8
+
 enUpdate :: Enemy -> TimeDelta -> Player -> Board -> Enemy
-enUpdate enemy@(Enemy (Vector x y) dir) dt pacman board -- = enemy{enPos = Vector (x - dt * enChaseSpeed) y}
-    = enMove (enemy{enDir=W}) dt board
+enUpdate enemy@(Enemy pos dir _) dt pacman board
+    = enSnapToCenter $ minimumBy cmp [ew,ee,es,en]
+      where ew = enMove (enemy{enDir=W}) dt board
+            ee = enMove (enemy{enDir=E}) dt board
+            es = enMove (enemy{enDir=S}) dt board
+            en = enMove (enemy{enDir=N}) dt board
+            distToPlayer e = vlen $ (enGetPos e) `vsub` (plGetPos pacman)
+            cmp e e' | distToPlayer e < distToPlayer e' = LT
+                     | distToPlayer e > distToPlayer e' = GT
+                     | True  = EQ
 
 enMove :: Enemy -> TimeDelta -> Board -> Enemy
 enMove enemy@(Enemy pos@(Vector px py) dir) dt board
@@ -112,7 +130,7 @@ data Player = Player { pos :: Vector,
                        dir :: Direction
                      } deriving (Show)
 
-plSpeed = 16 :: Float    -- player/pacman's speed (px/s)
+plSpeed = 16 :: Speed    -- player/pacman's speed (px/s)
 
 makePlayer :: Vector -> Player
 makePlayer pos = Player pos X
@@ -223,7 +241,7 @@ main = withInit [InitVideo] $
        images <- loadImages
        startTime <- getCPUTime
        loop startTime (GameData balls player enemies board1) images
-       where enemies = map makeEnemy [(Vector 500 250), (Vector 450 300)]
+       where enemies = map makeEnemy [(Vector 500 250), (Vector 450 300), (Vector (5*50) (4*50))]
              balls   = map makeBall [ Vector (float x * 50.0) (float y * 50.0) | x <- range (0, 12-1), y <- range(0, 7-1) ]
              player  = makePlayer (Vector 0 0)
              t=1; r=2; b=4; l=8
@@ -234,7 +252,7 @@ main = withInit [InitVideo] $
                        lr, bl,  r, tl, br, tl,  t, tr,  l, tr, lr, lr,  0,  0,  0,  r,
                         l, tb,  r, lr, tl, br, lr, lr, bl, br, lr, lr,  0,  0,  0,  r,
                         l, tb, br, lr, bl, tr, lr, lr, tl, tb, br, lr,  0,  0,  0,  r,
-                        l, tb, tr, bl, tr, lr, lr, bl,  r, tl, tr, lr,  0,  0,  0,  r,
+                        l, tb, tr, bl, tr, lr, lr, bl,  0,  t, tr, lr,  0,  0,  0,  r,
                        bl, tb,  b, tb,  b, br, bl, tb, br, bl,  b, br,  0,  0,  0,  r,
                        tl,  t,  t,  t,  t,  t,  t,  t,  t,  t,  t,  t,  t,  t,  t, tr,
                         l,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  r,
