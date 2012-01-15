@@ -20,6 +20,7 @@ type Screen = Surface
 (boardWidth, boardHeight) = (16, 12)           -- ilosc kafli w poziomie i pionie
 boardSize = (boardWidth, boardHeight)
 (tileW, tileH) = (windowWidth `div` boardWidth, windowHeight `div` boardHeight)
+tileHalf = Vector (float tileW) (float tileH) `vscale` 0.5
 
 img_placeholder = img_smile
 img_smile = "smile"
@@ -60,6 +61,9 @@ type Board = [Int]
 brickAt :: Board -> Int -> Int -> Int
 brickAt board col row = board !! ((fromIntegral$ row `div` tileH) * boardWidth + (fromIntegral$ col `div` tileW))
 
+getNearestCenter plPos@(Vector x y) = Vector x' y' where x' = (float.floor $ x/tw) * tw + tw/2
+                                                         y' = (float.floor $ y/th) * th + th/2
+                                                         (tw, th) = (float tileW, float tileH)
 ---- Ball
 type Ball = Vector
 type Balls = [Ball]
@@ -110,16 +114,6 @@ plUpdateDir pacman@(Player plPos@(Vector px py) plDir) dt newDir
       else pacman {dir = newDir, pos = plPos'}
            where plPos' = centeredPos
                  centeredPos@(Vector cx cy) = getNearestCenter (plPos `vadd` tileHalf) `vsub` tileHalf
-                 tileHalf = Vector (float tileW) (float tileH) `vscale` 0.5
-                 -- -- tak napisałbym w każdym sensownym języku. Niestety Haskell nie ogarnia sytuacji
-                 -- -- i zmusił mnie do zrobienia brzydkiego obejścia, bleh :(
-                 -- getNearestCenter plPos@(Vector x y) = Vector x' y' where x' = (floor$ x/tileW) * tileW + tileW/2
-                 --                                                          y' = (floor$ y/tileH) * tileH + tileH/2
-                 getNearestCenter (Vector x y) = Vector (findCoordX x) (findCoordY y)
-                   where findCoordX :: Float -> Float
-                         findCoordX x = if 0 <= x && x < (float tileW) then (float tileW)/2 else (float tileW) + findCoordX (x - float tileW)
-                         findCoordY :: Float -> Float
-                         findCoordY x = if 0 <= x && x < (float tileH) then (float tileH)/2 else (float tileH) + findCoordY (x - float tileH)
 
 ---- GameData
 data GameData = GameData { balls :: Balls,
