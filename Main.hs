@@ -59,6 +59,18 @@ vscale (Vector a b) factor = Vector (a * factor) (b * factor)
 instance Show Vector where
     show (Vector a b) = "[" ++ (show a) ++ ", " ++ (show b) ++ "]"
 
+defaultMove :: TimeDelta -> Position -> Direction -> Board -> Speed -> Position
+defaultMove dt pos@(Vector px py) dir board speed
+    = pos `vadd` Vector dx dy
+      where dx = if dir `elem` [X, N, S] then 0
+                 else (case dir of
+                          E -> if (brickAt board (        (round $ px + speed*dt)) (round py) .&. 2 /= 0) then 0 else  speed*dt
+                          W -> if (brickAt board (tileW + (round $ px - speed*dt)) (round py) .&. 8 /= 0) then 0 else -speed*dt)
+            dy = if dir `elem` [X, W, E] then 0
+                 else (case dir of
+                          S -> if (brickAt board (round px) (        (round $ py + speed*dt)) .&. 4 /= 0) then 0 else  speed*dt
+                          N -> if (brickAt board (round px) (tileH + (round $ py - speed*dt)) .&. 1 /= 0) then 0 else -speed*dt)
+
 ---- Board
 type Board = [Int]
 
@@ -68,6 +80,7 @@ brickAt board col row = board !! ((fromIntegral$ row `div` tileH) * boardWidth +
 getNearestCenter plPos@(Vector x y) = Vector x' y' where x' = (float.floor $ x/tw) * tw + tw/2
                                                          y' = (float.floor $ y/th) * th + th/2
                                                          (tw, th) = (float tileW, float tileH)
+
 ---- Ball
 type Ball = Vector
 type Balls = [Ball]
@@ -112,18 +125,8 @@ enUpdate enemy@(Enemy pos dir _) dt pacman board
                      | True  = EQ
 
 enMove :: Enemy -> TimeDelta -> Board -> Enemy
-enMove enemy@(Enemy pos@(Vector px py) dir) dt board
-    = enemy{enPos=pos `vadd` Vector dx dy}
-      where
-        dx = if dir `elem` [X, N, S] then 0
-             else (case dir of
-                      E -> if (brickAt board (        (round $ px + speed*dt)) (round py) .&. 2 /= 0) then 0 else  speed*dt
-                      W -> if (brickAt board (tileW + (round $ px - speed*dt)) (round py) .&. 8 /= 0) then 0 else -speed*dt)
-        dy = if dir `elem` [X, W, E] then 0
-             else (case dir of
-                      S -> if (brickAt board (round px) (        (round $ py + speed*dt)) .&. 4 /= 0) then 0 else  speed*dt
-                      N -> if (brickAt board (round px) (tileH + (round $ py - speed*dt)) .&. 1 /= 0) then 0 else -speed*dt)
-        speed = enChaseSpeed
+enMove enemy@(Enemy pos dir _) dt board
+    = enemy{enPos = defaultMove dt pos dir board enChaseSpeed}
 
 ---- Player
 data Player = Player { pos :: Vector,
@@ -139,17 +142,8 @@ plGetPos :: Player -> Vector
 plGetPos Player{pos=p} = p
 
 plMove :: Player -> TimeDelta -> Board -> Player
-plMove pacman@(Player pos@(Vector px py) dir) dt board
-    = pacman{pos=pos `vadd` Vector dx dy}
-      where
-        dx = if dir `elem` [X, N, S] then 0
-             else (case dir of
-                      E -> if (brickAt board (        (round $ px + plSpeed*dt)) (round py) .&. 2 /= 0) then 0 else  plSpeed*dt
-                      W -> if (brickAt board (tileW + (round $ px - plSpeed*dt)) (round py) .&. 8 /= 0) then 0 else -plSpeed*dt)
-        dy = if dir `elem` [X, W, E] then 0
-             else (case dir of
-                      S -> if (brickAt board (round px) (        (round $ py + plSpeed*dt)) .&. 4 /= 0) then 0 else  plSpeed*dt
-                      N -> if (brickAt board (round px) (tileH + (round $ py - plSpeed*dt)) .&. 1 /= 0) then 0 else -plSpeed*dt)
+plMove pacman@(Player pos dir) dt board
+    = pacman{pos = defaultMove dt pos dir board plSpeed}
 
 plUpdateDir :: Player -> TimeDelta -> Direction -> Player
 plUpdateDir pacman@(Player plPos@(Vector px py) plDir) dt newDir
