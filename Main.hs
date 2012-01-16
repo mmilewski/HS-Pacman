@@ -15,7 +15,6 @@ type SurfacesMap = Map String Surface
 type TimeDelta = Float
 type Speed = Float
 type CpuTime = Integer
-type Screen = Surface
 
 (windowWidth, windowHeight) = (800, 600)       -- rozmiar okna w px
 (boardWidth, boardHeight) = (16, 12)           -- ilosc kafli w poziomie i pionie
@@ -45,6 +44,12 @@ loadImages :: IO (SurfacesMap)
 loadImages
     = do surfaces <- mapM (\name -> Image.load $ concat ["gfx/", name, ".png"]) img_all
          return $ fromList $ zip img_all surfaces
+
+---- Screen
+type Screen = Surface
+
+scBlit :: Screen -> Surface -> Int -> Int -> IO ()
+scBlit screen imageSurface x y = mignore $ blitSurface imageSurface Nothing screen (Just $ Rect x y 0 0)
 
 ---- Direction
 data Direction = N | W | S | E | X deriving (Show, Eq)
@@ -173,10 +178,10 @@ gdDisplay (GameData balls pacman enemies board) imagesMap
             displayBalls   = mapM_ (displayImage img_ball) balls
             displayEnemies = mapM_ ((displayImage img_enemy) . enGetPos) enemies
             displayPlayer  =       ((displayImage img_pacman) . plGetPos) pacman
-            displayImage imgName (Vector x y) = mignore$ blitSurface (surfaceByName imgName) Nothing screen (Just $ Rect (round x) (round y) 0 0 )
+            displayImage imgName (Vector x y) = scBlit screen (surfaceByName imgName) (round x) (round y)
             surfaceByName imgName = fromJust $ lookup imgName imagesMap
             displayBoardPiece imagesMap (i, piece) = mapM_ blit [(piece .&. 1), (piece .&. 2), (piece .&. 4), (piece .&. 8)]
-                     where blit p = mignore$ blitSurface (surfaceByName (nameOf p)) Nothing screen (Just $ Rect (tileW * col) (tileH * row) 0 0)
+                     where blit p = scBlit screen (surfaceByName (nameOf p)) (tileW * col) (tileH * row)
                            nameOf p = fromJust $ lookup p $ fromList [(0, img_board_empty), (1, img_board_top), (2, img_board_right),
                                                                       (4, img_board_bottom), (8, img_board_left)]
                            (row, col) = divMod i boardWidth
