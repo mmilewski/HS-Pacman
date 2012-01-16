@@ -15,8 +15,8 @@
 * za zebrane kropki gracz dostaje punkty
 
 @ wyświetlanie potwora
-* kolizje potwora z planszą
-* potwór goni gracza
+@ kolizje potwora z planszą
+@ potwór goni gracza
 
 * ładowanie planszy z pliku -- json?
 

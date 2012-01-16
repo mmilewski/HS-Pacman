@@ -13,8 +13,8 @@ import Ix (range)
 
 type SurfacesMap = Map String Surface
 type TimeDelta = Float
+type Speed = Float
 type CpuTime = Integer
-type Screen = Surface
 
 (windowWidth, windowHeight) = (800, 600)       -- rozmiar okna w px
 (boardWidth, boardHeight) = (16, 12)           -- ilosc kafli w poziomie i pionie
@@ -45,8 +45,17 @@ loadImages
     = do surfaces <- mapM (\name -> Image.load $ concat ["gfx/", name, ".png"]) img_all
          return $ fromList $ zip img_all surfaces
 
+---- Screen
+type Screen = Surface
+
+scBlit :: Screen -> Surface -> Int -> Int -> IO ()
+scBlit screen imageSurface x y = mignore $ blitSurface imageSurface Nothing screen (Just $ Rect x y 0 0)
+
+---- Direction
+data Direction = N | W | S | E | X deriving (Show, Eq)
+
 ---- Vector
-data Vector = Vector Float Float
+data Vector = Vector Float Float deriving (Eq)
 type Position = Vector
 vadd (Vector a b) (Vector c d) = Vector (a + c) (b + d)
 vsub (Vector a b) (Vector c d) = Vector (a - c) (b - d)
@@ -54,6 +63,18 @@ vlen (Vector a b) = sqrt $ (a*a + b*b)
 vscale (Vector a b) factor = Vector (a * factor) (b * factor)
 instance Show Vector where
     show (Vector a b) = "[" ++ (show a) ++ ", " ++ (show b) ++ "]"
+
+defaultMove :: TimeDelta -> Position -> Direction -> Board -> Speed -> Position
+defaultMove dt pos@(Vector px py) dir board speed
+    = pos `vadd` Vector dx dy
+      where dx = if dir `elem` [X, N, S] then 0
+                 else (case dir of
+                          E -> if (brickAt board (        (round $ px + speed*dt)) (round py) .&. 2 /= 0) then 0 else  speed*dt
+                          W -> if (brickAt board (tileW + (round $ px - speed*dt)) (round py) .&. 8 /= 0) then 0 else -speed*dt)
+            dy = if dir `elem` [X, W, E] then 0
+                 else (case dir of
+                          S -> if (brickAt board (round px) (        (round $ py + speed*dt)) .&. 4 /= 0) then 0 else  speed*dt
+                          N -> if (brickAt board (round px) (tileH + (round $ py - speed*dt)) .&. 1 /= 0) then 0 else -speed*dt)
 
 ---- Board
 type Board = [Int]
@@ -64,6 +85,7 @@ brickAt board col row = board !! ((fromIntegral$ row `div` tileH) * boardWidth +
 getNearestCenter plPos@(Vector x y) = Vector x' y' where x' = (float.floor $ x/tw) * tw + tw/2
                                                          y' = (float.floor $ y/th) * th + th/2
                                                          (tw, th) = (float tileW, float tileH)
+
 ---- Ball
 type Ball = Vector
 type Balls = [Ball]
@@ -72,19 +94,47 @@ makeBall :: Vector -> Ball
 makeBall pos = pos
 
 ---- Enemy
-type Enemy = Vector
+data Enemy = Enemy { enPos :: Vector,
+                     enDir :: Direction
+                   } deriving (Show)
 type Enemies = [Enemy]
 
-makeEnemy :: Vector -> Ball
-makeEnemy pos = pos
+enChaseSpeed = plSpeed * 0.8
+enEscapeSpeed = plSpeed * 0.7
+
+makeEnemy :: Vector -> Enemy
+makeEnemy pos = Enemy pos X
+
+enGetPos :: Enemy -> Vector
+enGetPos Enemy{enPos=p} = p
+
+enUpdate :: Enemy -> TimeDelta -> Player -> Board -> Enemy
+enUpdate enemy@(Enemy pos dir) dt pacman board
+    = if canChangeDir then minimumBy cmp [ew,ee,es,en] else enMove enemy dt board
+      where ew = enMove (snapY$ enemy{enDir=W}) dt board
+            ee = enMove (snapY$ enemy{enDir=E}) dt board
+            es = enMove (snapX$ enemy{enDir=S}) dt board
+            en = enMove (snapX$ enemy{enDir=N}) dt board
+            distToPlayer e = vlen $ (enGetPos e) `vsub` (plGetPos pacman)
+            cmp e e' | distToPlayer e < distToPlayer e' = LT
+                     | distToPlayer e > distToPlayer e' = GT
+                     | True  = EQ
+            snapX enemy@(Enemy{enPos=Vector _ py}) = enemy{enPos=Vector cx py}
+            snapY enemy@(Enemy{enPos=Vector px _}) = enemy{enPos=Vector px cy}
+            centeredPos@(Vector cx cy) = getNearestCenter (pos `vadd` tileHalf) `vsub` tileHalf
+            canChangeDir = vlen (pos `vsub` centeredPos) < snapDistance
+            snapDistance = 5
+
+enMove :: Enemy -> TimeDelta -> Board -> Enemy
+enMove enemy@(Enemy pos dir) dt board
+    = enemy{enPos = defaultMove dt pos dir board enChaseSpeed}
 
 ---- Player
-data Direction = N | W | S | E | X deriving (Show, Eq)
 data Player = Player { pos :: Vector,
                        dir :: Direction
                      } deriving (Show)
 
-plSpeed = 160 :: Float    -- player/pacman's speed (px/s)
+plSpeed = 10*120 :: Speed    -- player/pacman's speed (px/s)
 
 makePlayer :: Vector -> Player
 makePlayer pos = Player pos X
@@ -93,17 +143,8 @@ plGetPos :: Player -> Vector
 plGetPos Player{pos=p} = p
 
 plMove :: Player -> TimeDelta -> Board -> Player
-plMove pacman@(Player pos@(Vector px py) dir) dt board
-    = pacman{pos=pos `vadd` Vector dx dy}
-      where
-        dx = if dir `elem` [X, N, S] then 0
-             else (case dir of
-                      E -> if (brickAt board (        (round $ px + plSpeed*dt)) (round py) .&. 2 /= 0) then 0 else  plSpeed*dt
-                      W -> if (brickAt board (tileW + (round $ px - plSpeed*dt)) (round py) .&. 8 /= 0) then 0 else -plSpeed*dt)
-        dy = if dir `elem` [X, W, E] then 0
-             else (case dir of
-                      S -> if (brickAt board (round px) (        (round $ py + plSpeed*dt)) .&. 4 /= 0) then 0 else  plSpeed*dt
-                      N -> if (brickAt board (round px) (tileH + (round $ py - plSpeed*dt)) .&. 1 /= 0) then 0 else -plSpeed*dt)
+plMove pacman@(Player pos dir) dt board
+    = pacman{pos = defaultMove dt pos dir board plSpeed}
 
 plUpdateDir :: Player -> TimeDelta -> Direction -> Player
 plUpdateDir pacman@(Player plPos@(Vector px py) plDir) dt newDir
@@ -123,7 +164,7 @@ data GameData = GameData { balls :: Balls,
                          } deriving (Show)
 
 gdDisplay :: GameData -> SurfacesMap -> IO ()
-gdDisplay (GameData balls (Player plPos _) enemies board) imagesMap
+gdDisplay (GameData balls pacman enemies board) imagesMap
     = getVideoSurface >>= (\screen -> displayAt screen >> SDL.flip screen)
       where
         displayAt screen = displayBg >> displayBoard >> displayBalls >> displayEnemies >> displayPlayer
@@ -131,12 +172,12 @@ gdDisplay (GameData balls (Player plPos _) enemies board) imagesMap
             displayBg      = mapRGB (surfaceGetPixelFormat screen) 0x1F 0x1F 0x1F >>= (\grey -> fillRect screen Nothing grey)
             displayBoard   = mapM_ (\i_p -> displayBoardPiece imagesMap i_p) $ zip (iterate (+1) 0) board
             displayBalls   = mapM_ (displayImage img_ball) balls
-            displayEnemies = mapM_ (displayImage img_enemy) enemies
-            displayPlayer  =       (displayImage img_pacman) plPos
-            displayImage imgName (Vector x y) = mignore$ blitSurface (surfaceByName imgName) Nothing screen (Just $ Rect (round x) (round y) 0 0 )
+            displayEnemies = mapM_ ((displayImage img_enemy) . enGetPos) enemies
+            displayPlayer  =       ((displayImage img_pacman) . plGetPos) pacman
+            displayImage imgName (Vector x y) = scBlit screen (surfaceByName imgName) (round x) (round y)
             surfaceByName imgName = fromJust $ lookup imgName imagesMap
             displayBoardPiece imagesMap (i, piece) = mapM_ blit [(piece .&. 1), (piece .&. 2), (piece .&. 4), (piece .&. 8)]
-                     where blit p = mignore$ blitSurface (surfaceByName (nameOf p)) Nothing screen (Just $ Rect (tileW * col) (tileH * row) 0 0)
+                     where blit p = scBlit screen (surfaceByName (nameOf p)) (tileW * col) (tileH * row)
                            nameOf p = fromJust $ lookup p $ fromList [(0, img_board_empty), (1, img_board_top), (2, img_board_right),
                                                                       (4, img_board_bottom), (8, img_board_left)]
                            (row, col) = divMod i boardWidth
@@ -158,16 +199,17 @@ gdUpdate :: GameData -> TimeDelta -> IO(GameData)
 gdUpdate gameData dt
     = do event <- pollEvent
          (GameData balls pacman enemies board) <- gdHandleEvent gameData dt event
-         let pacman' = plMove pacman dt board
+         let pacman'  = plMove pacman dt board
+         let enemies' = map (\e -> enUpdate e dt pacman board) enemies
          let collidesWithPlayer ball = 10 > vlen (ball `vsub` plGetPos pacman)
          let (consumed, notConsumed) = List.partition collidesWithPlayer balls
-         return$ GameData notConsumed pacman' enemies board
+         return$ GameData notConsumed pacman' enemies' board
 
 ---- Main
 loop :: CpuTime -> GameData -> SurfacesMap -> IO ()
 loop startTime gameData images
     = do endTime <- getCPUTime
-         let dt = (fromIntegral (endTime - startTime)) / (10^12)
+         let dt = (fromIntegral (endTime - startTime)) / (10^13)
          gameData' <- gdUpdate gameData dt
          gdDisplay gameData' images
          loop endTime gameData' images
@@ -194,7 +236,7 @@ main = withInit [InitVideo] $
        images <- loadImages
        startTime <- getCPUTime
        loop startTime (GameData balls player enemies board1) images
-       where enemies = map makeEnemy [(Vector 500 250), (Vector 450 300)]
+       where enemies = map makeEnemy [(Vector 500 250), (Vector (5*50) (6*50))]
              balls   = map makeBall [ Vector (float x * 50.0) (float y * 50.0) | x <- range (0, 12-1), y <- range(0, 7-1) ]
              player  = makePlayer (Vector 0 0)
              t=1; r=2; b=4; l=8
@@ -205,7 +247,7 @@ main = withInit [InitVideo] $
                        lr, bl,  r, tl, br, tl,  t, tr,  l, tr, lr, lr,  0,  0,  0,  r,
                         l, tb,  r, lr, tl, br, lr, lr, bl, br, lr, lr,  0,  0,  0,  r,
                         l, tb, br, lr, bl, tr, lr, lr, tl, tb, br, lr,  0,  0,  0,  r,
-                        l, tb, tr, bl, tr, lr, lr, bl,  r, tl, tr, lr,  0,  0,  0,  r,
+                        l, tb, tr, bl, tr, lr, lr, bl,  0,  t, tr, lr,  0,  0,  0,  r,
                        bl, tb,  b, tb,  b, br, bl, tb, br, bl,  b, br,  0,  0,  0,  r,
                        tl,  t,  t,  t,  t,  t,  t,  t,  t,  t,  t,  t,  t,  t,  t, tr,
                         l,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  r,
