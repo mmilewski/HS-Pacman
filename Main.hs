@@ -84,7 +84,7 @@ data Player = Player { pos :: Vector,
                        dir :: Direction
                      } deriving (Show)
 
-plSpeed = 16 :: Float    -- player/pacman's speed (px/s)
+plSpeed = 160 :: Float    -- player/pacman's speed (px/s)
 
 makePlayer :: Vector -> Player
 makePlayer pos = Player pos X
@@ -167,7 +167,7 @@ gdUpdate gameData dt
 loop :: CpuTime -> GameData -> SurfacesMap -> IO ()
 loop startTime gameData images
     = do endTime <- getCPUTime
-         let dt = (fromIntegral (endTime - startTime)) / (10^11)
+         let dt = (fromIntegral (endTime - startTime)) / (10^12)
          gameData' <- gdUpdate gameData dt
          gdDisplay gameData' images
          loop endTime gameData' images
