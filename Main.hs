@@ -95,8 +95,7 @@ makeBall pos = pos
 
 ---- Enemy
 data Enemy = Enemy { enPos :: Vector,
-                     enDir :: Direction,
-                     enSnap :: Bool        -- czy przyciągać jednostkę do środka pola
+                     enDir :: Direction
                    } deriving (Show)
 type Enemies = [Enemy]
 
@@ -104,33 +103,30 @@ enChaseSpeed = plSpeed * 0.8
 enEscapeSpeed = plSpeed * 0.7
 
 makeEnemy :: Vector -> Enemy
-makeEnemy pos = Enemy pos X False
+makeEnemy pos = Enemy pos X
 
 enGetPos :: Enemy -> Vector
 enGetPos Enemy{enPos=p} = p
 
-enSnapToCenter :: Enemy -> Enemy
-enSnapToCenter enemy@Enemy{enPos=p, enSnap=snap}
-    = if snap && vlen (p `vsub` centeredPos) < snapDistance then enemy{enPos = centeredPos,
-                                                                       enSnap = False}
-      else enemy {enSnap = True}
-        where centeredPos = getNearestCenter (p `vadd` tileHalf) `vsub` tileHalf
-              snapDistance = 8
-
 enUpdate :: Enemy -> TimeDelta -> Player -> Board -> Enemy
-enUpdate enemy@(Enemy pos dir _) dt pacman board
-    = enSnapToCenter $ minimumBy cmp [ew,ee,es,en]
-      where ew = enMove (enemy{enDir=W}) dt board
-            ee = enMove (enemy{enDir=E}) dt board
-            es = enMove (enemy{enDir=S}) dt board
-            en = enMove (enemy{enDir=N}) dt board
+enUpdate enemy@(Enemy pos dir) dt pacman board
+    = if canChangeDir then minimumBy cmp [ew,ee,es,en] else enMove enemy dt board
+      where ew = enMove (snapY$ enemy{enDir=W}) dt board
+            ee = enMove (snapY$ enemy{enDir=E}) dt board
+            es = enMove (snapX$ enemy{enDir=S}) dt board
+            en = enMove (snapX$ enemy{enDir=N}) dt board
             distToPlayer e = vlen $ (enGetPos e) `vsub` (plGetPos pacman)
             cmp e e' | distToPlayer e < distToPlayer e' = LT
                      | distToPlayer e > distToPlayer e' = GT
                      | True  = EQ
+            snapX enemy@(Enemy{enPos=Vector _ py}) = enemy{enPos=Vector cx py}
+            snapY enemy@(Enemy{enPos=Vector px _}) = enemy{enPos=Vector px cy}
+            centeredPos@(Vector cx cy) = getNearestCenter (pos `vadd` tileHalf) `vsub` tileHalf
+            canChangeDir = vlen (pos `vsub` centeredPos) < snapDistance
+            snapDistance = 5
 
 enMove :: Enemy -> TimeDelta -> Board -> Enemy
-enMove enemy@(Enemy pos dir _) dt board
+enMove enemy@(Enemy pos dir) dt board
     = enemy{enPos = defaultMove dt pos dir board enChaseSpeed}
 
 ---- Player
@@ -240,7 +236,7 @@ main = withInit [InitVideo] $
        images <- loadImages
        startTime <- getCPUTime
        loop startTime (GameData balls player enemies board1) images
-       where enemies = map makeEnemy [(Vector 500 250), (Vector 450 300), (Vector (5*50) (4*50))]
+       where enemies = map makeEnemy [(Vector 500 250), (Vector (5*50) (6*50))]
              balls   = map makeBall [ Vector (float x * 50.0) (float y * 50.0) | x <- range (0, 12-1), y <- range(0, 7-1) ]
              player  = makePlayer (Vector 0 0)
              t=1; r=2; b=4; l=8
