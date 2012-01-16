@@ -100,8 +100,8 @@ data Enemy = Enemy { enPos :: Vector,
                    } deriving (Show)
 type Enemies = [Enemy]
 
-enChaseSpeed = plSpeed - 3
-enEscapeSpeed = plSpeed - 7
+enChaseSpeed = plSpeed * 0.8
+enEscapeSpeed = plSpeed * 0.7
 
 makeEnemy :: Vector -> Enemy
 makeEnemy pos = Enemy pos X False
@@ -138,7 +138,7 @@ data Player = Player { pos :: Vector,
                        dir :: Direction
                      } deriving (Show)
 
-plSpeed = 16 :: Speed    -- player/pacman's speed (px/s)
+plSpeed = 10*120 :: Speed    -- player/pacman's speed (px/s)
 
 makePlayer :: Vector -> Player
 makePlayer pos = Player pos X
@@ -213,7 +213,7 @@ gdUpdate gameData dt
 loop :: CpuTime -> GameData -> SurfacesMap -> IO ()
 loop startTime gameData images
     = do endTime <- getCPUTime
-         let dt = (fromIntegral (endTime - startTime)) / (10^11)
+         let dt = (fromIntegral (endTime - startTime)) / (10^13)
          gameData' <- gdUpdate gameData dt
          gdDisplay gameData' images
          loop endTime gameData' images
