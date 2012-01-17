@@ -228,10 +228,17 @@ gdUpdate gameData dt
          if List.null consumedFruits then return() else putStrLn "May the Force be with you!"
          let pacman'  = if List.null consumedFruits then movedPacman else plMakeHunting movedPacman
                         where movedPacman = plMove pacman dt board
-             enemies' = map ((if plIsHunting pacman' then enMakeScared else enMakeHunting)
-                             . (\e -> enUpdate e dt pacman board)) enemies
-         return$ GameData balls' pacman' enemies' fruits' board
-             where collidesWithPlayer pacman objPos = 10 > vlen (objPos `vsub` plGetPos pacman)
+             (collidEnemies, nonCollidEnemies) = List.partition ((collidesWithPlayer pacman).enGetPos) enemies
+         let updateEnemies enemies = map ((if plIsHunting pacman' then enMakeScared else enMakeHunting)
+                                          . (\e -> enUpdate e dt pacman board)) enemies
+         return $ if (notNull collidEnemies) && plIsHunting pacman then
+                      GameData balls' pacman' (updateEnemies nonCollidEnemies) fruits' board
+                  else if (notNull collidEnemies) && (not$ plIsHunting pacman) then
+                      defaultGameData
+                  else
+                      GameData balls' pacman' (updateEnemies enemies) fruits' board
+            where collidesWithPlayer pacman objPos = 10 > vlen (objPos `vsub` plGetPos pacman)
+
 
 ---- Main
 loop :: CpuTime -> GameData -> SurfacesMap -> IO ()
