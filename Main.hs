@@ -1,3 +1,7 @@
+{-
+   Pacman for Haskell
+   by Marcin Milewski
+-}
 module Main where
 
 import Prelude hiding (lookup)
@@ -69,18 +73,18 @@ defaultMove dt pos@(Vector px py) dir board speed
     = pos `vadd` Vector dx dy
       where dx = if dir `elem` [X, N, S] then 0
                  else (case dir of
-                          E -> if (brickAt board (        (round $ px + speed*dt)) (round py) .&. 2 /= 0) then 0 else  speed*dt
-                          W -> if (brickAt board (tileW + (round $ px - speed*dt)) (round py) .&. 8 /= 0) then 0 else -speed*dt)
+                          E -> if brickAt board (        (round $ px + speed*dt)) (round py) .&. 2 /= 0 then 0 else  speed*dt
+                          W -> if brickAt board (tileW + (round $ px - speed*dt)) (round py) .&. 8 /= 0 then 0 else -speed*dt)
             dy = if dir `elem` [X, W, E] then 0
                  else (case dir of
-                          S -> if (brickAt board (round px) (        (round $ py + speed*dt)) .&. 4 /= 0) then 0 else  speed*dt
-                          N -> if (brickAt board (round px) (tileH + (round $ py - speed*dt)) .&. 1 /= 0) then 0 else -speed*dt)
+                          S -> if brickAt board (round px) (        (round $ py + speed*dt)) .&. 4 /= 0 then 0 else  speed*dt
+                          N -> if brickAt board (round px) (tileH + (round $ py - speed*dt)) .&. 1 /= 0 then 0 else -speed*dt)
 
 ---- Board
 type Board = [Int]
 
 brickAt :: Board -> Int -> Int -> Int
-brickAt board col row = board !! ((fromIntegral$ row `div` tileH) * boardWidth + (fromIntegral$ col `div` tileW))
+brickAt board col row = board !! n where n = (fromIntegral$ row `div` tileH) * boardWidth + (fromIntegral$ col `div` tileW)
 
 getNearestCenter plPos@(Vector x y) = Vector x' y' where x' = (float.floor $ x/tw) * tw + tw/2
                                                          y' = (float.floor $ y/th) * th + th/2
@@ -175,10 +179,10 @@ gdDisplay (GameData balls pacman enemies board) imagesMap
             displayEnemies = mapM_ ((displayImage img_enemy) . enGetPos) enemies
             displayPlayer  =       ((displayImage img_pacman) . plGetPos) pacman
             displayImage imgName (Vector x y) = scBlit screen (surfaceByName imgName) (round x) (round y)
-            surfaceByName imgName = fromJust $ lookup imgName imagesMap
+            surfaceByName imgName = fromJust$ lookup imgName imagesMap
             displayBoardPiece imagesMap (i, piece) = mapM_ blit [(piece .&. 1), (piece .&. 2), (piece .&. 4), (piece .&. 8)]
                      where blit p = scBlit screen (surfaceByName (nameOf p)) (tileW * col) (tileH * row)
-                           nameOf p = fromJust $ lookup p $ fromList [(0, img_board_empty), (1, img_board_top), (2, img_board_right),
+                           nameOf p = fromJust.lookup p $ fromList [(0, img_board_empty), (1, img_board_top), (2, img_board_right),
                                                                       (4, img_board_bottom), (8, img_board_left)]
                            (row, col) = divMod i boardWidth
 
@@ -188,11 +192,7 @@ gdHandleEvent gd _ SDL.Quit = exitWith ExitSuccess
 gdHandleEvent gd _ (KeyDown (Keysym _ _ 'q')) = exitWith ExitSuccess
 gdHandleEvent gd@(GameData _ pacman _ board) dt (KeyDown (Keysym key _ _))
     = if key `elem` [SDLK_RIGHT, SDLK_LEFT, SDLK_DOWN, SDLK_UP] then return $ gd{pacman = plUpdateDir pacman dt dir}
-      else return gd where dir = case key of
-                                   SDLK_RIGHT -> E
-                                   SDLK_LEFT  -> W
-                                   SDLK_DOWN  -> S
-                                   SDLK_UP    -> N
+      else return gd where dir = fromJust.lookup key $ fromList [(SDLK_RIGHT, E), (SDLK_LEFT, W), (SDLK_DOWN, S), (SDLK_UP, N)]
 gdHandleEvent gd _ _ = return gd
 
 gdUpdate :: GameData -> TimeDelta -> IO(GameData)
@@ -236,7 +236,7 @@ main = withInit [InitVideo] $
        images <- loadImages
        startTime <- getCPUTime
        loop startTime (GameData balls player enemies board1) images
-       where enemies = map makeEnemy [(Vector 500 250), (Vector (5*50) (6*50))]
+       where enemies = map makeEnemy [(Vector 500 250), (Vector (3*50) (6*50))]
              balls   = map makeBall [ Vector (float x * 50.0) (float y * 50.0) | x <- range (0, 12-1), y <- range(0, 7-1) ]
              player  = makePlayer (Vector 0 0)
              t=1; r=2; b=4; l=8
