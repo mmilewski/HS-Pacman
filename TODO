@@ -14,8 +14,9 @@
 @ potwór może być w dwóch stanach: goni, ucieka
 @ jak potwór ucieka, to ma mniejszą prędkość
 @ gracz może wziąć bonus, który pozwoli mu śledzić i konsumować potwory
+@ gracz ma inny kolor gdy poluje, a inny gdy ucieka
 
-* gracz ma inny kolor gdy poluje, a inny gdy ucieka
+* gracz zjada potwora, jeśli poluje
 * wyświetlanie pacmana - 4 obrazki w zależności od kierunku ruchu
 * ładowanie planszy z pliku -- json?
 * po utracie życia gra jest resetowana

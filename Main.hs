@@ -27,6 +27,7 @@ boardSize = (boardWidth, boardHeight)
 tileHalf = Vector (float tileW) (float tileH) `vscale` 0.5
 
 img_pacman = "pacman"
+img_pacman_hunting = "pacman_hunting"
 img_enemy = "enemy"
 img_ball = "ball"
 img_fruit = "fruit"
@@ -35,7 +36,7 @@ img_board_bottom = "board-bottom"
 img_board_right = "board-right"
 img_board_left = "board-left"
 img_board_top = "board-top"
-img_all = [img_fruit, img_ball, img_enemy, img_pacman,
+img_all = [img_fruit, img_ball, img_enemy, img_pacman, img_pacman_hunting,
            img_board_empty, img_board_bottom, img_board_right, img_board_left, img_board_top]
 
 float :: Int -> Float      -- konwersja Int ~~> Float
@@ -159,7 +160,7 @@ makePlayer pos = Player pos X 0.0
 plGetPos :: Player -> Position
 plGetPos Player{plPos=p} = p
 
-plMakeHunting pacman = pacman{plHuntingTime=0.2}
+plMakeHunting pacman = pacman{plHuntingTime=1.0}
 plIsHunting pacman@(Player{plHuntingTime=t}) = t > 0
 
 plMove :: Player -> TimeDelta -> Board -> Player
@@ -196,7 +197,7 @@ gdDisplay (GameData balls pacman enemies fruits board) imagesMap
             displayBalls   = mapM_ (displayImage img_ball) balls
             displayFruits  = mapM_ (displayImage img_fruit) fruits
             displayEnemies = mapM_ ((displayImage img_enemy) . enGetPos) enemies
-            displayPlayer  =       ((displayImage img_pacman) . plGetPos) pacman
+            displayPlayer  =       ((displayImage (if plIsHunting pacman then img_pacman_hunting else img_pacman)) . plGetPos) pacman
             displayImage imgName (Vector x y) = scBlit screen (surfaceByName imgName) (round x) (round y)
             surfaceByName imgName = fromJust$ lookup imgName imagesMap
             displayBoardPiece imagesMap (i, piece) = mapM_ blit [(piece .&. 1), (piece .&. 2), (piece .&. 4), (piece .&. 8)]
