@@ -42,6 +42,9 @@ img_all = [img_fruit, img_ball, img_enemy, img_pacman, img_pacman_hunting,
 float :: Int -> Float      -- konwersja Int ~~> Float
 float = fromIntegral
 
+notNull :: [a] -> Bool
+notNull = not . List.null
+
 mignore :: Monad m => m a -> m ()
 mignore a = a >> return ()
 
@@ -152,7 +155,7 @@ data Player = Player { plPos :: Position,
                        plHuntingTime :: TimeDelta
                      } deriving (Show)
 
-plSpeed = 10*120 :: Speed    -- player/pacman's speed (px/s)
+plSpeed = 10*100 :: Speed    -- player/pacman's speed (px/s)
 
 makePlayer :: Position -> Player
 makePlayer pos = Player pos X 0.0
@@ -260,7 +263,10 @@ main = withInit [InitVideo] $
        enableUnicode True
        images <- loadImages
        startTime <- getCPUTime
-       loop startTime (GameData balls player enemies fruits board1) images
+       loop startTime defaultGameData images
+
+defaultGameData
+    = GameData balls player enemies fruits board1
        where enemies = map makeEnemy [(Vector 500 250), (Vector (3*50) (6*50))]
              fruits  = map makeFruit [(Vector (5*50) (3*50)), (Vector (8*50) 0), (Vector (2*50) 0)]
              balls   = map makeBall [ Vector (float x * 50.0) (float y * 50.0) | x <- range (0, 12-1), y <- range(0, 7-1) ]
