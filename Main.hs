@@ -26,8 +26,6 @@ boardSize = (boardWidth, boardHeight)
 (tileW, tileH) = (windowWidth `div` boardWidth, windowHeight `div` boardHeight)
 tileHalf = Vector (float tileW) (float tileH) `vscale` 0.5
 
-img_placeholder = img_smile
-img_smile = "smile"
 img_pacman = "pacman"
 img_enemy = "enemy"
 img_ball = "ball"
@@ -37,7 +35,7 @@ img_board_bottom = "board-bottom"
 img_board_right = "board-right"
 img_board_left = "board-left"
 img_board_top = "board-top"
-img_all = [img_fruit, img_ball, img_smile, img_enemy, img_pacman,
+img_all = [img_fruit, img_ball, img_enemy, img_pacman,
            img_board_empty, img_board_bottom, img_board_right, img_board_left, img_board_top]
 
 float :: Int -> Float      -- konwersja Int ~~> Float
@@ -93,21 +91,21 @@ getNearestCenter plPos@(Vector x y) = Vector x' y' where x' = (float.floor $ x/t
                                                          (tw, th) = (float tileW, float tileH)
 
 ---- Ball
-type Ball = Vector
+type Ball = Position
 type Balls = [Ball]
 
-makeBall :: Vector -> Ball
+makeBall :: Position -> Ball
 makeBall pos = pos
 
 ---- Fruit
-type Fruit = Vector
+type Fruit = Position
 type Fruits = [Fruit]
 
 makeFruit :: Position -> Fruit
 makeFruit pos = pos
 
 ---- Enemy
-data Enemy = Enemy { enPos :: Vector,
+data Enemy = Enemy { enPos :: Position,
                      enDir :: Direction,
                      enIsHunting :: Bool
                    } deriving (Show)
@@ -116,16 +114,13 @@ type Enemies = [Enemy]
 enChaseSpeed = plSpeed * 0.8
 enEscapeSpeed = plSpeed * 0.7
 
-makeEnemy :: Vector -> Enemy
+makeEnemy :: Position -> Enemy
 makeEnemy pos = Enemy pos X True
 
-enGetPos :: Enemy -> Vector
+enGetPos :: Enemy -> Position
 enGetPos Enemy{enPos=p} = p
 
-enMakeScared :: Enemy -> Enemy
-enMakeScared enemy = enemy{enIsHunting=False}
-
-enMakeHunting :: Enemy -> Enemy
+enMakeScared  enemy = enemy{enIsHunting=False}
 enMakeHunting enemy = enemy{enIsHunting=True}
 
 enUpdate :: Enemy -> TimeDelta -> Player -> Board -> Enemy
@@ -151,17 +146,17 @@ enMove enemy@(Enemy pos dir isHunting) dt board
       where speed = if isHunting then enChaseSpeed else enEscapeSpeed
 
 ---- Player
-data Player = Player { plPos :: Vector,
+data Player = Player { plPos :: Position,
                        plDir :: Direction,
-                       plHuntingTime :: Float --TimeDelta
+                       plHuntingTime :: TimeDelta
                      } deriving (Show)
 
 plSpeed = 10*120 :: Speed    -- player/pacman's speed (px/s)
 
-makePlayer :: Vector -> Player
+makePlayer :: Position -> Player
 makePlayer pos = Player pos X 0.0
 
-plGetPos :: Player -> Vector
+plGetPos :: Player -> Position
 plGetPos Player{plPos=p} = p
 
 plMakeHunting pacman = pacman{plHuntingTime=0.2}
