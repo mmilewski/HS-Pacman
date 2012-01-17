@@ -99,7 +99,8 @@ makeBall pos = pos
 
 ---- Enemy
 data Enemy = Enemy { enPos :: Vector,
-                     enDir :: Direction
+                     enDir :: Direction,
+                     enIsHunting :: Bool
                    } deriving (Show)
 type Enemies = [Enemy]
 
@@ -107,14 +108,14 @@ enChaseSpeed = plSpeed * 0.8
 enEscapeSpeed = plSpeed * 0.7
 
 makeEnemy :: Vector -> Enemy
-makeEnemy pos = Enemy pos X
+makeEnemy pos = Enemy pos X True
 
 enGetPos :: Enemy -> Vector
 enGetPos Enemy{enPos=p} = p
 
 enUpdate :: Enemy -> TimeDelta -> Player -> Board -> Enemy
-enUpdate enemy@(Enemy pos dir) dt pacman board
-    = if canChangeDir then minimumBy cmp [ew,ee,es,en] else enMove enemy dt board
+enUpdate enemy@(Enemy pos dir isHunting) dt pacman board
+    = if canChangeDir then (if isHunting then minimumBy else maximumBy) cmp [ew,ee,es,en] else enMove enemy dt board
       where ew = enMove (snapY$ enemy{enDir=W}) dt board
             ee = enMove (snapY$ enemy{enDir=E}) dt board
             es = enMove (snapX$ enemy{enDir=S}) dt board
@@ -130,8 +131,9 @@ enUpdate enemy@(Enemy pos dir) dt pacman board
             snapDistance = 5
 
 enMove :: Enemy -> TimeDelta -> Board -> Enemy
-enMove enemy@(Enemy pos dir) dt board
-    = enemy{enPos = defaultMove dt pos dir board enChaseSpeed}
+enMove enemy@(Enemy pos dir isHunting) dt board
+    = enemy{enPos = defaultMove dt pos dir board speed}
+      where speed = if isHunting then enChaseSpeed else enEscapeSpeed
 
 ---- Player
 data Player = Player { plPos :: Vector,
