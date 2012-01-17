@@ -31,12 +31,14 @@ img_smile = "smile"
 img_pacman = "pacman"
 img_enemy = "enemy"
 img_ball = "ball"
+img_fruit = "fruit"
 img_board_empty = "board-empty"
 img_board_bottom = "board-bottom"
 img_board_right = "board-right"
 img_board_left = "board-left"
 img_board_top = "board-top"
-img_all = [img_ball, img_smile, img_enemy, img_pacman, img_board_empty, img_board_bottom, img_board_right, img_board_left, img_board_top]
+img_all = [img_fruit, img_ball, img_smile, img_enemy, img_pacman,
+           img_board_empty, img_board_bottom, img_board_right, img_board_left, img_board_top]
 
 float :: Int -> Float      -- konwersja Int ~~> Float
 float = fromIntegral
@@ -97,6 +99,13 @@ type Balls = [Ball]
 makeBall :: Vector -> Ball
 makeBall pos = pos
 
+---- Fruit
+type Fruit = Vector
+type Fruits = [Fruit]
+
+makeFruit :: Position -> Fruit
+makeFruit pos = pos
+
 ---- Enemy
 data Enemy = Enemy { enPos :: Vector,
                      enDir :: Direction,
@@ -112,6 +121,12 @@ makeEnemy pos = Enemy pos X True
 
 enGetPos :: Enemy -> Vector
 enGetPos Enemy{enPos=p} = p
+
+enMakeScared :: Enemy -> Enemy
+enMakeScared enemy = enemy{enIsHunting=False}
+
+enMakeHunting :: Enemy -> Enemy
+enMakeHunting enemy = enemy{enIsHunting=True}
 
 enUpdate :: Enemy -> TimeDelta -> Player -> Board -> Enemy
 enUpdate enemy@(Enemy pos dir isHunting) dt pacman board
@@ -137,23 +152,28 @@ enMove enemy@(Enemy pos dir isHunting) dt board
 
 ---- Player
 data Player = Player { plPos :: Vector,
-                       plDir :: Direction
+                       plDir :: Direction,
+                       plHuntingTime :: Float --TimeDelta
                      } deriving (Show)
 
 plSpeed = 10*120 :: Speed    -- player/pacman's speed (px/s)
 
 makePlayer :: Vector -> Player
-makePlayer pos = Player pos X
+makePlayer pos = Player pos X 0.0
 
 plGetPos :: Player -> Vector
 plGetPos Player{plPos=p} = p
 
+plMakeHunting pacman = pacman{plHuntingTime=0.2}
+plIsHunting pacman@(Player{plHuntingTime=t}) = t > 0
+
 plMove :: Player -> TimeDelta -> Board -> Player
-plMove pacman@(Player pos dir) dt board
-    = pacman{plPos = defaultMove dt pos dir board plSpeed}
+plMove pacman@(Player pos dir huntingTime) dt board
+    = pacman{plPos = defaultMove dt pos dir board plSpeed,
+             plHuntingTime = max 0.0 (huntingTime - dt)}
 
 plUpdateDir :: Player -> TimeDelta -> Direction -> Player
-plUpdateDir pacman@(Player plPos@(Vector px py) plDir) dt newDir
+plUpdateDir pacman@(Player plPos@(Vector px py) plDir _) dt newDir
     = if plDir == newDir then pacman
       else if (plDir, newDir) `elem` [(N,S), (S,N), (W,E), (E,W)] || newDir == X then pacman {plDir = newDir}
       else if plDir `elem` [E, W] && 15 < (abs $ cx - px) then pacman
@@ -166,18 +186,20 @@ plUpdateDir pacman@(Player plPos@(Vector px py) plDir) dt newDir
 data GameData = GameData { balls :: Balls,
                            pacman :: Player,
                            enemies :: Enemies,
+                           fruits :: Fruits,
                            board :: Board
                          } deriving (Show)
 
 gdDisplay :: GameData -> SurfacesMap -> IO ()
-gdDisplay (GameData balls pacman enemies board) imagesMap
+gdDisplay (GameData balls pacman enemies fruits board) imagesMap
     = getVideoSurface >>= (\screen -> displayAt screen >> SDL.flip screen)
       where
-        displayAt screen = displayBg >> displayBoard >> displayBalls >> displayEnemies >> displayPlayer
+        displayAt screen = displayBg >> displayBoard >> displayBalls >> displayFruits >> displayEnemies >> displayPlayer
           where
             displayBg      = mapRGB (surfaceGetPixelFormat screen) 0x1F 0x1F 0x1F >>= (\grey -> fillRect screen Nothing grey)
             displayBoard   = mapM_ (\i_p -> displayBoardPiece imagesMap i_p) $ zip (iterate (+1) 0) board
             displayBalls   = mapM_ (displayImage img_ball) balls
+            displayFruits  = mapM_ (displayImage img_fruit) fruits
             displayEnemies = mapM_ ((displayImage img_enemy) . enGetPos) enemies
             displayPlayer  =       ((displayImage img_pacman) . plGetPos) pacman
             displayImage imgName (Vector x y) = scBlit screen (surfaceByName imgName) (round x) (round y)
@@ -185,14 +207,14 @@ gdDisplay (GameData balls pacman enemies board) imagesMap
             displayBoardPiece imagesMap (i, piece) = mapM_ blit [(piece .&. 1), (piece .&. 2), (piece .&. 4), (piece .&. 8)]
                      where blit p = scBlit screen (surfaceByName (nameOf p)) (tileW * col) (tileH * row)
                            nameOf p = fromJust.lookup p $ fromList [(0, img_board_empty), (1, img_board_top), (2, img_board_right),
-                                                                      (4, img_board_bottom), (8, img_board_left)]
+                                                                    (4, img_board_bottom), (8, img_board_left)]
                            (row, col) = divMod i boardWidth
 
 gdHandleEvent :: GameData -> TimeDelta -> Event -> IO(GameData)
 gdHandleEvent gd _ SDL.NoEvent = return gd
 gdHandleEvent gd _ SDL.Quit = exitWith ExitSuccess
 gdHandleEvent gd _ (KeyDown (Keysym _ _ 'q')) = exitWith ExitSuccess
-gdHandleEvent gd@(GameData _ pacman _ board) dt (KeyDown (Keysym key _ _))
+gdHandleEvent gd@(GameData _ pacman _ board _) dt (KeyDown (Keysym key _ _))
     = if key `elem` [SDLK_RIGHT, SDLK_LEFT, SDLK_DOWN, SDLK_UP] then return $ gd{pacman = plUpdateDir pacman dt dir}
       else return gd where dir = fromJust.lookup key $ fromList [(SDLK_RIGHT, E), (SDLK_LEFT, W), (SDLK_DOWN, S), (SDLK_UP, N)]
 gdHandleEvent gd _ _ = return gd
@@ -200,12 +222,17 @@ gdHandleEvent gd _ _ = return gd
 gdUpdate :: GameData -> TimeDelta -> IO(GameData)
 gdUpdate gameData dt
     = do event <- pollEvent
-         (GameData balls pacman enemies board) <- gdHandleEvent gameData dt event
-         let pacman'  = plMove pacman dt board
-         let enemies' = map (\e -> enUpdate e dt pacman board) enemies
-         let collidesWithPlayer ball = 10 > vlen (ball `vsub` plGetPos pacman)
-         let (consumed, notConsumed) = List.partition collidesWithPlayer balls
-         return$ GameData notConsumed pacman' enemies' board
+         (GameData balls pacman enemies fruits board) <- gdHandleEvent gameData dt event
+         let (consumedBalls,  balls')  = List.partition (collidesWithPlayer pacman) balls
+             (consumedFruits, fruits') = List.partition (collidesWithPlayer pacman) fruits
+         if List.null consumedBalls  then return() else putStrLn "Consumed a ball!"
+         if List.null consumedFruits then return() else putStrLn "May the Force be with you!"
+         let pacman'  = if List.null consumedFruits then movedPacman else plMakeHunting movedPacman
+                        where movedPacman = plMove pacman dt board
+             enemies' = map ((if plIsHunting pacman' then enMakeScared else enMakeHunting)
+                             . (\e -> enUpdate e dt pacman board)) enemies
+         return$ GameData balls' pacman' enemies' fruits' board
+             where collidesWithPlayer pacman objPos = 10 > vlen (objPos `vsub` plGetPos pacman)
 
 ---- Main
 loop :: CpuTime -> GameData -> SurfacesMap -> IO ()
@@ -237,8 +264,9 @@ main = withInit [InitVideo] $
        enableUnicode True
        images <- loadImages
        startTime <- getCPUTime
-       loop startTime (GameData balls player enemies board1) images
+       loop startTime (GameData balls player enemies fruits board1) images
        where enemies = map makeEnemy [(Vector 500 250), (Vector (3*50) (6*50))]
+             fruits  = map makeFruit [(Vector (5*50) (3*50)), (Vector (8*50) 0), (Vector (2*50) 0)]
              balls   = map makeBall [ Vector (float x * 50.0) (float y * 50.0) | x <- range (0, 12-1), y <- range(0, 7-1) ]
              player  = makePlayer (Vector 0 0)
              t=1; r=2; b=4; l=8

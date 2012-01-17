@@ -1,30 +1,25 @@
 @ wyświetlanie okna
 @ wyświetlanie obrazka
 @ merge displayObjects i displayObject
-
-* wyświetlanie pacmana - 4 obrazki w zależności od kierunku ruchu
 @ pacman porusza się w wybranym kierunku aż do napotkania ściany
 @ pacman zmienia kierunek ruchu gdy gracz nacisnie klawisz
 @ wyświetlanie planszy
 @ poruszanie pacamanem po planszy
 @ kolizje pacamana z planszą
-
 @ wyświetlanie kropek do zbierania
 @ gracz może zbierać kropki
-
-* za zebrane kropki gracz dostaje punkty
-
 @ wyświetlanie potwora
 @ kolizje potwora z planszą
 @ potwór goni gracza
+@ potwór może być w dwóch stanach: goni, ucieka
+@ jak potwór ucieka, to ma mniejszą prędkość
+@ gracz może wziąć bonus, który pozwoli mu śledzić i konsumować potwory
+
+* wyświetlanie pacmana - 4 obrazki w zależności od kierunku ruchu
 
 * ładowanie planszy z pliku -- json?
 
-* potwór może być w dwóch stanach: goni, ucieka
-* jak potwór ucieka, to ma mniejszą prędkość
-
-* gracz może wziąć bonus, który pozwoli mu śledzić i konsumować potwory
-
+* za zebrane kropki gracz dostaje punkty
 * wyświetlanie punktów
 
 * main menu
