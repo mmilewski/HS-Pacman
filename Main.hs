@@ -130,8 +130,8 @@ enMove enemy@(Enemy pos dir) dt board
     = enemy{enPos = defaultMove dt pos dir board enChaseSpeed}
 
 ---- Player
-data Player = Player { pos :: Vector,
-                       dir :: Direction
+data Player = Player { plPos :: Vector,
+                       plDir :: Direction
                      } deriving (Show)
 
 plSpeed = 10*120 :: Speed    -- player/pacman's speed (px/s)
@@ -140,19 +140,19 @@ makePlayer :: Vector -> Player
 makePlayer pos = Player pos X
 
 plGetPos :: Player -> Vector
-plGetPos Player{pos=p} = p
+plGetPos Player{plPos=p} = p
 
 plMove :: Player -> TimeDelta -> Board -> Player
 plMove pacman@(Player pos dir) dt board
-    = pacman{pos = defaultMove dt pos dir board plSpeed}
+    = pacman{plPos = defaultMove dt pos dir board plSpeed}
 
 plUpdateDir :: Player -> TimeDelta -> Direction -> Player
 plUpdateDir pacman@(Player plPos@(Vector px py) plDir) dt newDir
     = if plDir == newDir then pacman
-      else if (plDir, newDir) `elem` [(N,S), (S,N), (W,E), (E,W)] || newDir == X then pacman {dir = newDir}
+      else if (plDir, newDir) `elem` [(N,S), (S,N), (W,E), (E,W)] || newDir == X then pacman {plDir = newDir}
       else if plDir `elem` [E, W] && 15 < (abs $ cx - px) then pacman
       else if plDir `elem` [S, N] && 15 < (abs $ cy - py) then pacman
-      else pacman {dir = newDir, pos = plPos'}
+      else pacman {plDir = newDir, plPos = plPos'}
            where plPos' = centeredPos
                  centeredPos@(Vector cx cy) = getNearestCenter (plPos `vadd` tileHalf) `vsub` tileHalf
 
