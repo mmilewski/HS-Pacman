@@ -1,6 +1,5 @@
 @ wyświetlanie okna
 @ wyświetlanie obrazka
-@ merge displayObjects i displayObject
 @ pacman porusza się w wybranym kierunku aż do napotkania ściany
 @ pacman zmienia kierunek ruchu gdy gracz nacisnie klawisz
 @ wyświetlanie planszy
@@ -8,22 +7,22 @@
 @ kolizje pacamana z planszą
 @ wyświetlanie kropek do zbierania
 @ gracz może zbierać kropki
-@ wyświetlanie potwora
-@ kolizje potwora z planszą
-@ potwór goni gracza
-@ potwór może być w dwóch stanach: goni, ucieka
-@ jak potwór ucieka, to ma mniejszą prędkość
-@ gracz może wziąć bonus, który pozwoli mu śledzić i konsumować potwory
+@ wyświetlanie ducha
+@ kolizje ducha z planszą
+@ duch goni gracza
+@ duch może być w dwóch stanach: goni, ucieka
+@ jak duch ucieka, to ma mniejszą prędkość
+@ gracz może wziąć bonus, który pozwoli mu śledzić i zjadać duchy
 @ gracz ma inny kolor gdy poluje, a inny gdy ucieka
-@ gracz zjada potwora, jeśli poluje
+@ duch znika, gdy gracz go zje
 @ po utracie życia gra jest resetowana
-* wyświetlanie pacmana - 4 obrazki w zależności od kierunku ruchu
-* ładowanie planszy z pliku -- json?
-* za zebrane kropki gracz dostaje punkty
-* wyświetlanie punktów
-* po zebraniu wszystkich kropek gra się kończy (komunikat na ekranie)
 
+* wyświetlanie pacmana - 4 obrazki w zależności od kierunku ruchu
+* za zebrane kropki gracz dostaje punkty
+* wyświetlanie punktów na ekranie
+* po zebraniu wszystkich kropek gra się kończy (komunikat na ekranie)
+* ładowanie planszy z pliku -- json?
 * dźwięki
 * main menu
-* splash
+* splash screen
 * high score

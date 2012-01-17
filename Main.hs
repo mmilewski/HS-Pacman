@@ -1,6 +1,14 @@
 {-
-   Pacman for Haskell
-   by Marcin Milewski
+   Pacman in Haskell using SDL library
+
+   by Marcin Milewski, 2012
+
+Zasady/Opis:
+  1. Gra polega na zebraniu wszystkich białych kulek znajdujących się na planszy.
+  2. W grze obecne są duchy, które gonią Pacmana. Bliski kontakt z nimi oznacza zakończenie rozgrywki.
+  3. Jeżeli gracz weźmie bonus w postaci papryki, wtedy role duchów i Pacmana odwracają się,
+     tzn. w przypadku spotkania duch zostaje usunięty z planszy.
+  4. Zarówno gracz jak i duchy nie mogą przechodzić przez ściany.
 -}
 module Main where
 
@@ -15,13 +23,12 @@ import Data.Maybe (fromJust)
 import Data.Bits ((.&.))
 import Ix (range)
 
-type SurfacesMap = Map String Surface
 type TimeDelta = Float
 type Speed = Float
 type CpuTime = Integer
 
-(windowWidth, windowHeight) = (800, 600)       -- rozmiar okna w px
-(boardWidth, boardHeight) = (16, 12)           -- ilosc kafli w poziomie i pionie
+(windowWidth, windowHeight) = (800, 600)
+(boardWidth,  boardHeight)  = (16, 12)         -- ilosc kafli w poziomie i pionie
 boardSize = (boardWidth, boardHeight)
 (tileW, tileH) = (windowWidth `div` boardWidth, windowHeight `div` boardHeight)
 tileHalf = Vector (float tileW) (float tileH) `vscale` 0.5
@@ -48,7 +55,10 @@ notNull = not . List.null
 mignore :: Monad m => m a -> m ()
 mignore a = a >> return ()
 
-loadImages :: IO (SurfacesMap)
+---- Images
+type ImagesMap = Map String Surface
+
+loadImages :: IO (ImagesMap)
 loadImages
     = do surfaces <- mapM (\name -> Image.load $ concat ["gfx/", name, ".png"]) img_all
          return $ fromList $ zip img_all surfaces
@@ -64,13 +74,29 @@ data Direction = N | W | S | E | X deriving (Show, Eq)
 
 ---- Vector
 data Vector = Vector Float Float deriving (Eq)
+
 type Position = Vector
+
 vadd (Vector a b) (Vector c d) = Vector (a + c) (b + d)
+
 vsub (Vector a b) (Vector c d) = Vector (a - c) (b - d)
+
 vlen (Vector a b) = sqrt $ (a*a + b*b)
+
 vscale (Vector a b) factor = Vector (a * factor) (b * factor)
+
 instance Show Vector where
     show (Vector a b) = "[" ++ (show a) ++ ", " ++ (show b) ++ "]"
+
+---- Board
+type Board = [Int]
+
+brickAt :: Board -> Int -> Int -> Int
+brickAt board col row = board !! n where n = (fromIntegral$ row `div` tileH) * boardWidth + (fromIntegral$ col `div` tileW)
+
+getNearestCenter (Vector x y) = Vector x' y' where x' = (float.floor $ x/tw) * tw + tw/2
+                                                   y' = (float.floor $ y/th) * th + th/2
+                                                   (tw, th) = (float tileW, float tileH)
 
 defaultMove :: TimeDelta -> Position -> Direction -> Board -> Speed -> Position
 defaultMove dt pos@(Vector px py) dir board speed
@@ -83,16 +109,6 @@ defaultMove dt pos@(Vector px py) dir board speed
                  else (case dir of
                           S -> if brickAt board (round px) (        (round $ py + speed*dt)) .&. 4 /= 0 then 0 else  speed*dt
                           N -> if brickAt board (round px) (tileH + (round $ py - speed*dt)) .&. 1 /= 0 then 0 else -speed*dt)
-
----- Board
-type Board = [Int]
-
-brickAt :: Board -> Int -> Int -> Int
-brickAt board col row = board !! n where n = (fromIntegral$ row `div` tileH) * boardWidth + (fromIntegral$ col `div` tileW)
-
-getNearestCenter plPos@(Vector x y) = Vector x' y' where x' = (float.floor $ x/tw) * tw + tw/2
-                                                         y' = (float.floor $ y/th) * th + th/2
-                                                         (tw, th) = (float tileW, float tileH)
 
 ---- Ball
 type Ball = Position
@@ -109,14 +125,14 @@ makeFruit :: Position -> Fruit
 makeFruit pos = pos
 
 ---- Enemy
-data Enemy = Enemy { enPos :: Position,
+data Enemy = Enemy { enPos :: Position,           -- top left corner
                      enDir :: Direction,
                      enIsHunting :: Bool
                    } deriving (Show)
 type Enemies = [Enemy]
 
 enChaseSpeed = plSpeed * 0.8
-enEscapeSpeed = plSpeed * 0.7
+enEscapeSpeed = plSpeed * 0.4
 
 makeEnemy :: Position -> Enemy
 makeEnemy pos = Enemy pos X True
@@ -150,9 +166,9 @@ enMove enemy@(Enemy pos dir isHunting) dt board
       where speed = if isHunting then enChaseSpeed else enEscapeSpeed
 
 ---- Player
-data Player = Player { plPos :: Position,
+data Player = Player { plPos :: Position,           -- top left corner
                        plDir :: Direction,
-                       plHuntingTime :: TimeDelta
+                       plHuntingTime :: TimeDelta   -- time left to upgrade deactivation
                      } deriving (Show)
 
 plSpeed = 10*100 :: Speed    -- player/pacman's speed (px/s)
@@ -163,7 +179,8 @@ makePlayer pos = Player pos X 0.0
 plGetPos :: Player -> Position
 plGetPos Player{plPos=p} = p
 
-plMakeHunting pacman = pacman{plHuntingTime=1.0}
+plMakeHunting pacman = pacman{plHuntingTime = 0.8}
+
 plIsHunting pacman@(Player{plHuntingTime=t}) = t > 0
 
 plMove :: Player -> TimeDelta -> Board -> Player
@@ -189,7 +206,7 @@ data GameData = GameData { balls :: Balls,
                            board :: Board
                          } deriving (Show)
 
-gdDisplay :: GameData -> SurfacesMap -> IO ()
+gdDisplay :: GameData -> ImagesMap -> IO ()
 gdDisplay (GameData balls pacman enemies fruits board) imagesMap
     = getVideoSurface >>= (\screen -> displayAt screen >> SDL.flip screen)
       where
@@ -222,26 +239,34 @@ gdUpdate :: GameData -> TimeDelta -> IO(GameData)
 gdUpdate gameData dt
     = do event <- pollEvent
          (GameData balls pacman enemies fruits board) <- gdHandleEvent gameData dt event
+         -- balls & fruits
          let (consumedBalls,  balls')  = List.partition (collidesWithPlayer pacman) balls
              (consumedFruits, fruits') = List.partition (collidesWithPlayer pacman) fruits
          if List.null consumedBalls  then return() else putStrLn "Consumed a ball!"
-         if List.null consumedFruits then return() else putStrLn "May the Force be with you!"
+         if List.null consumedFruits then return() else putStrLn "Upgrade!"
+         -- pacman
          let pacman'  = if List.null consumedFruits then movedPacman else plMakeHunting movedPacman
                         where movedPacman = plMove pacman dt board
              (collidEnemies, nonCollidEnemies) = List.partition ((collidesWithPlayer pacman).enGetPos) enemies
+         -- pacman ate ghost
+         if plIsHunting pacman' && notNull collidEnemies then
+           do
+             putStrLn$ "Consumed " ++ (show$ length collidEnemies) ++ " ghosts!"
+             putStrLn$ "Ghosts left: " ++ (show$ length nonCollidEnemies)
+           else return()
+         -- enemies
          let updateEnemies enemies = map ((if plIsHunting pacman' then enMakeScared else enMakeHunting)
                                           . (\e -> enUpdate e dt pacman board)) enemies
-         return $ if (notNull collidEnemies) && plIsHunting pacman then
+         return $ if notNull collidEnemies && plIsHunting pacman then
                       GameData balls' pacman' (updateEnemies nonCollidEnemies) fruits' board
-                  else if (notNull collidEnemies) && (not$ plIsHunting pacman) then
+                  else if notNull collidEnemies && (not$ plIsHunting pacman) then
                       defaultGameData
                   else
                       GameData balls' pacman' (updateEnemies enemies) fruits' board
             where collidesWithPlayer pacman objPos = 10 > vlen (objPos `vsub` plGetPos pacman)
 
-
 ---- Main
-loop :: CpuTime -> GameData -> SurfacesMap -> IO ()
+loop :: CpuTime -> GameData -> ImagesMap -> IO ()
 loop startTime gameData images
     = do endTime <- getCPUTime
          let dt = (fromIntegral (endTime - startTime)) / (10^13)
@@ -272,18 +297,19 @@ main = withInit [InitVideo] $
        startTime <- getCPUTime
        loop startTime defaultGameData images
 
+defaultGameData :: GameData
 defaultGameData
-    = GameData balls player enemies fruits board1
-       where enemies = map makeEnemy [(Vector 500 250), (Vector (3*50) (6*50))]
+    = GameData balls player enemies fruits board
+       where enemies = map makeEnemy [(Vector 500 250), (Vector (0*50) (6*50))]
              fruits  = map makeFruit [(Vector (5*50) (3*50)), (Vector (8*50) 0), (Vector (2*50) 0)]
              balls   = map makeBall [ Vector (float x * 50.0) (float y * 50.0) | x <- range (0, 12-1), y <- range(0, 7-1) ]
              player  = makePlayer (Vector 0 0)
+
              t=1; r=2; b=4; l=8
              tl=t+l; tr=t+r; bl=b+l; br=b+r; lr=l+r; tb=t+b
-
-             board1 = [tl,  t, tb, tb,  t, tb, tb, tb, tr, tl,  t, tr,  t,  t,  t, tr,
-                       lr, lr, tl, tb,  0, tb, tb, tb,  0, br, lr, lr,  0,  0,  0,  r,
-                       lr, bl,  r, tl, br, tl,  t, tr,  l, tr, lr, lr,  0,  0,  0,  r,
+             board  = [tl,  t, tb, tb,  t, tb, tb, tb, tr, tl,  t, tr,  t,  t,  t, tr,
+                       lr, lr, tl, tb,  0, tb,  t, tb,  0, br, lr, lr,  0,  0,  0,  r,
+                       lr, bl,  r, tl, br, tl,  0, tr,  l, tr, lr, lr,  0,  0,  0,  r,
                         l, tb,  r, lr, tl, br, lr, lr, bl, br, lr, lr,  0,  0,  0,  r,
                         l, tb, br, lr, bl, tr, lr, lr, tl, tb, br, lr,  0,  0,  0,  r,
                         l, tb, tr, bl, tr, lr, lr, bl,  0,  t, tr, lr,  0,  0,  0,  r,
@@ -293,15 +319,3 @@ defaultGameData
                         l,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  r,
                         l,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  r,
                        bl,  b,  b,  b,  b,  b,  b,  b,  b,  b,  b,  b,  b,  b,  b, br]
-             board = [ 9,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  3,
-                       8,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  2,
-                       8,  0,  0,  4,  2,  8,  0,  0,  0,  0,  0,  1,  3,  0,  0,  2,
-                       8,  0,  2, 15, 10,  8,  0,  0,  2,  0,  0,  0,  2,  0,  0,  2,
-                       8,  0,  0,  1,  2,  8,  0,  0,  2,  0,  0,  0,  2,  0,  0,  2,
-                       8,  0,  0,  0,  0,  0,  0,  0,  2,  0,  0,  0,  2,  0,  0,  2,
-                       8,  0,  0,  2,  0,  2,  0,  0,  2,  0, 12,  4,  6,  4,  6,  2,
-                       8,  2,  8,  2,  0,  2,  0,  0,  0,  0,  0,  0,  0,  0,  0,  2,
-                       8,  0, 12,  6,  4,  6,  0,  0,  0,  0,  0,  0,  0,  0,  0,  2,
-                       8,  0,  0,  0,  0,  0,  0,  0,  0,  2,  0,  0,  0,  0,  0,  2,
-                       8,  0,  0,  0,  2,  0,  0,  0,  0,  2,  0,  0,  0,  0,  0,  2,
-                      12,  4,  4,  4,  6,  4,  4,  4,  4,  6,  4,  4,  4,  4,  4,  6]
