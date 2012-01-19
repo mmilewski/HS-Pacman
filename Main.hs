@@ -3,12 +3,17 @@
 
    by Marcin Milewski, 2012
 
+Wymagane biblioteki:
+  * SDL:       libghc6-sdl-dev
+  * SDL_image: libghc6-sdl-image-dev
+
 Zasady/Opis:
   1. Gra polega na zebraniu wszystkich białych kulek znajdujących się na planszy.
-  2. W grze obecne są duchy, które gonią Pacmana. Bliski kontakt z nimi oznacza zakończenie rozgrywki.
-  3. Jeżeli gracz weźmie bonus w postaci papryki, wtedy role duchów i Pacmana odwracają się,
+  2. Gracz steruje Pacmanem przy pomocy strzałek na klawiaturze.
+  3. W grze obecne są duchy, które gonią Pacmana. Bliski kontakt z nimi oznacza zakończenie rozgrywki.
+  4. Jeżeli gracz weźmie bonus w postaci papryki, wtedy role duchów i Pacmana odwracają się,
      tzn. w przypadku spotkania duch zostaje usunięty z planszy.
-  4. Zarówno gracz jak i duchy nie mogą przechodzić przez ściany.
+  5. Zarówno gracz jak i duchy nie mogą przechodzić przez ściany.
 -}
 module Main where
 
