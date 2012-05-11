@@ -250,10 +250,9 @@ gdUpdate gameData dt
          if List.null consumedBalls  then return() else putStrLn "Consumed a ball!"
          if List.null consumedFruits then return() else putStrLn "Upgrade!"
          -- pacman
-         let pacman'  = if List.null consumedFruits then movedPacman else plMakeHunting movedPacman
-                        where movedPacman = plMove pacman dt board
-             (collidEnemies, nonCollidEnemies) = List.partition ((collidesWithPlayer pacman).enGetPos) enemies
+         let pacman'  = (if notNull consumedFruits then plMakeHunting else id) $ plMove pacman dt board
          -- pacman ate ghost
+         let (collidEnemies, nonCollidEnemies) = List.partition ((collidesWithPlayer pacman).enGetPos) enemies
          if plIsHunting pacman' && notNull collidEnemies then
            do
              putStrLn$ "Consumed " ++ (show$ length collidEnemies) ++ " ghosts!"
@@ -262,12 +261,8 @@ gdUpdate gameData dt
          -- enemies
          let updateEnemies enemies = map ((if plIsHunting pacman' then enMakeScared else enMakeHunting)
                                           . (\e -> enUpdate e dt pacman board)) enemies
-         return $ if notNull collidEnemies && plIsHunting pacman then
-                      GameData balls' pacman' (updateEnemies nonCollidEnemies) fruits' board
-                  else if notNull collidEnemies && (not$ plIsHunting pacman) then
-                      defaultGameData
-                  else
-                      GameData balls' pacman' (updateEnemies enemies) fruits' board
+         return $ if notNull collidEnemies && (not$ plIsHunting pacman) then defaultGameData   -- pacman died, restart game
+                  else GameData balls' pacman' (updateEnemies nonCollidEnemies) fruits' board
             where collidesWithPlayer pacman objPos = 10 > vlen (objPos `vsub` plGetPos pacman)
 
 ---- Main
@@ -282,10 +277,8 @@ loop startTime gameData images
 assert :: Show a => Eq a => a -> a -> String -> IO()
 assert expected actual msg = if expected == actual then return () else error $ concat ["\nexpected: ", (show expected), "\nactual: ", (show actual), "\ndata: ", msg]
 
-main = withInit [InitVideo] $
-    do screen <- setVideoMode windowWidth windowHeight 16 [SWSurface]
-
-       let nums = iterate (+1) 0
+run_tests =
+    do let nums = iterate (+1) 0
        mapM_ (\(x,y) -> assert 0 (brickAt nums x y) (show x ++ " , " ++ show y)) $ zip (take 50 $ drop (0*50) nums) (take 50 nums)
        mapM_ (\(x,y) -> assert 1 (brickAt nums x y) (show x ++ " , " ++ show y)) $ zip (take 50 $ drop (1*50) nums) (take 50 nums)
        mapM_ (\(x,y) -> assert 5 (brickAt nums x y) (show x ++ " , " ++ show y)) $ zip (take 50 $ drop (5*50) nums) (take 50 nums)
@@ -295,7 +288,11 @@ main = withInit [InitVideo] $
        mapM_ (\(x,y) -> assert (0+10*16) (brickAt nums x y) (show x ++ " , " ++ show y)) $ zip (take 50 $ drop (0*50) nums) (take 50 $ drop(10*50) $ nums)
        mapM_ (\(x,y) -> assert (1+10*16) (brickAt nums x y) (show x ++ " , " ++ show y)) $ zip (take 50 $ drop (1*50) nums) (take 50 $ drop(10*50) $ nums)
        mapM_ (\(x,y) -> assert (5+10*16) (brickAt nums x y) (show x ++ " , " ++ show y)) $ zip (take 50 $ drop (5*50) nums) (take 50 $ drop(10*50) $ nums)
+       return ()
 
+main = withInit [InitVideo] $
+    do screen <- setVideoMode windowWidth windowHeight 16 [SWSurface]
+       run_tests
        setCaption "HS-Pacman" ""
        enableUnicode True
        images <- loadImages
