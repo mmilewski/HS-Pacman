@@ -28,6 +28,12 @@ import Data.Maybe (fromJust)
 import Data.Bits ((.&.))
 import Ix (range)
 
+import GameState
+import MainMenu
+import Video
+import ImageDefs
+import Vector
+
 type TimeDelta = Float
 type Speed = Float
 type CpuTime = Integer
@@ -38,60 +44,14 @@ boardSize = (boardWidth, boardHeight)
 (tileW, tileH) = (windowWidth `div` boardWidth, windowHeight `div` boardHeight)
 tileHalf = Vector (float tileW) (float tileH) `vscale` 0.5
 
-img_pacman = "pacman"
-img_pacman_hunting = "pacman_hunting"
-img_enemy = "enemy"
-img_ball = "ball"
-img_fruit = "fruit"
-img_board_empty = "board-empty"
-img_board_bottom = "board-bottom"
-img_board_right = "board-right"
-img_board_left = "board-left"
-img_board_top = "board-top"
-img_all = [img_fruit, img_ball, img_enemy, img_pacman, img_pacman_hunting,
-           img_board_empty, img_board_bottom, img_board_right, img_board_left, img_board_top]
-
 float :: Int -> Float      -- konwersja Int ~~> Float
 float = fromIntegral
 
 notNull :: [a] -> Bool
 notNull = not . List.null
 
-mignore :: Monad m => m a -> m ()
-mignore a = a >> return ()
-
----- Images
-type ImagesMap = Map String Surface
-
-loadImages :: IO (ImagesMap)
-loadImages
-    = do surfaces <- mapM (\name -> Image.load $ concat ["gfx/", name, ".png"]) img_all
-         return $ fromList $ zip img_all surfaces
-
----- Screen
-type Screen = Surface
-
-scBlit :: Screen -> Surface -> Int -> Int -> IO ()
-scBlit screen imageSurface x y = mignore $ blitSurface imageSurface Nothing screen (Just $ Rect x y 0 0)
-
 ---- Direction
 data Direction = N | W | S | E | X deriving (Show, Eq)
-
----- Vector
-data Vector = Vector Float Float deriving (Eq)
-
-type Position = Vector
-
-vadd (Vector a b) (Vector c d) = Vector (a + c) (b + d)
-
-vsub (Vector a b) (Vector c d) = Vector (a - c) (b - d)
-
-vlen (Vector a b) = sqrt $ (a*a + b*b)
-
-vscale (Vector a b) factor = Vector (a * factor) (b * factor)
-
-instance Show Vector where
-    show (Vector a b) = "[" ++ (show a) ++ ", " ++ (show b) ++ "]"
 
 ---- Board
 type Board = [Int]
@@ -231,52 +191,55 @@ gdDisplay (GameData balls pacman enemies fruits board) imagesMap
                                                                     (4, img_board_bottom), (8, img_board_left)]
                            (row, col) = divMod i boardWidth
 
-gdHandleEvent :: GameData -> TimeDelta -> Event -> IO(GameData)
-gdHandleEvent gd _ SDL.NoEvent = return gd
+gdHandleEvent :: GameData -> TimeDelta -> Event -> IO((GameState, GameData))
+gdHandleEvent gd _ SDL.NoEvent = return (GSPlay, gd)
 gdHandleEvent gd _ SDL.Quit = exitWith ExitSuccess
-gdHandleEvent gd _ (KeyDown (Keysym _ _ 'q')) = exitWith ExitSuccess
+gdHandleEvent gd _ (KeyDown (Keysym _ _ 'q')) = return (GSMainMenu, gd)
+gdHandleEvent gd _ (KeyDown (Keysym SDLK_ESCAPE _ _)) = return (GSMainMenu, gd)
 gdHandleEvent gd@(GameData _ pacman _ board _) dt (KeyDown (Keysym key _ _))
-    = if key `elem` [SDLK_RIGHT, SDLK_LEFT, SDLK_DOWN, SDLK_UP] then return $ gd{pacman = plUpdateDir pacman dt dir}
-      else return gd where dir = fromJust.lookup key $ fromList [(SDLK_RIGHT, E), (SDLK_LEFT, W), (SDLK_DOWN, S), (SDLK_UP, N)]
-gdHandleEvent gd _ _ = return gd
+    = if key `elem` [SDLK_RIGHT, SDLK_LEFT, SDLK_DOWN, SDLK_UP] then return (GSPlay, gd{pacman = plUpdateDir pacman dt dir})
+      else return (GSPlay, gd) where dir = fromJust.lookup key $ fromList [(SDLK_RIGHT, E), (SDLK_LEFT, W), (SDLK_DOWN, S), (SDLK_UP, N)]
+gdHandleEvent gd _ _ = return (GSPlay, gd)
 
-gdUpdate :: GameData -> TimeDelta -> IO(GameData)
+gdUpdate :: GameData -> TimeDelta -> IO((GameState,GameData))
 gdUpdate gameData dt
     = do event <- pollEvent
-         (GameData balls pacman enemies fruits board) <- gdHandleEvent gameData dt event
-         -- balls & fruits
-         let (consumedBalls,  balls')  = List.partition (collidesWithPlayer pacman) balls
-             (consumedFruits, fruits') = List.partition (collidesWithPlayer pacman) fruits
-         if List.null consumedBalls  then return() else putStrLn "Consumed a ball!"
-         if List.null consumedFruits then return() else putStrLn "Upgrade!"
-         -- pacman
-         let pacman'  = (if notNull consumedFruits then plMakeHunting else id) $ plMove pacman dt board
-         -- pacman ate ghost
-         let (collidEnemies, nonCollidEnemies) = List.partition ((collidesWithPlayer pacman).enGetPos) enemies
-         if plIsHunting pacman' && notNull collidEnemies then
-           do
-             putStrLn$ "Consumed " ++ (show$ length collidEnemies) ++ " ghosts!"
-             putStrLn$ "Ghosts left: " ++ (show$ length nonCollidEnemies)
-           else return()
-         -- enemies
-         let updateEnemies enemies = map ((if plIsHunting pacman' then enMakeScared else enMakeHunting)
-                                          . (\e -> enUpdate e dt pacman board)) enemies
-         return $ if notNull collidEnemies && (not$ plIsHunting pacman) then defaultGameData   -- pacman died, restart game
-                  else GameData balls' pacman' (updateEnemies nonCollidEnemies) fruits' board
-            where collidesWithPlayer pacman objPos = 10 > vlen (objPos `vsub` plGetPos pacman)
+         (gameState,(GameData balls pacman enemies fruits board)) <- gdHandleEvent gameData dt event
+         case gameState of
+           GSMainMenu -> return (GSMainMenu, gameData)
+           GSPlay     -> do -- balls & fruits
+                            let (consumedBalls,  balls')  = List.partition (collidesWithPlayer pacman) balls
+                                (consumedFruits, fruits') = List.partition (collidesWithPlayer pacman) fruits
+                            if List.null consumedBalls  then return() else putStrLn "Consumed a ball!"
+                            if List.null consumedFruits then return() else putStrLn "Upgrade!"
+                            -- pacman
+                            let pacman'  = (if notNull consumedFruits then plMakeHunting else id) $ plMove pacman dt board
+                            -- pacman ate ghost
+                            let (collidEnemies, nonCollidEnemies) = List.partition ((collidesWithPlayer pacman).enGetPos) enemies
+                            if plIsHunting pacman' && notNull collidEnemies then
+                              do
+                                putStrLn$ "Consumed " ++ (show$ length collidEnemies) ++ " ghosts!"
+                                putStrLn$ "Ghosts left: " ++ (show$ length nonCollidEnemies)
+                              else return()
+                            -- enemies
+                            let updateEnemies enemies = map ((if plIsHunting pacman' then enMakeScared else enMakeHunting)
+                                                             . (\e -> enUpdate e dt pacman board)) enemies
+                            return (GSPlay, if notNull collidEnemies && (not$ plIsHunting pacman) then defaultGameData   -- pacman died, restart game
+                                            else GameData balls' pacman' (updateEnemies nonCollidEnemies) fruits' board)
+                              where collidesWithPlayer pacman objPos = 10 > vlen (objPos `vsub` plGetPos pacman)
 
----- Main
-loop :: CpuTime -> GameData -> ImagesMap -> IO ()
-loop startTime gameData images
+gdLoop :: CpuTime -> GameData -> ImagesMap -> IO(GameState)
+gdLoop startTime gameData images
     = do endTime <- getCPUTime
          let dt = (fromIntegral (endTime - startTime)) / (10^13)
-         gameData' <- gdUpdate gameData dt
-         gdDisplay gameData' images
-         loop endTime gameData' images
+         (gameState, gameData') <- gdUpdate gameData dt
+         case gameState of
+           GSMainMenu -> return GSMainMenu
+           GSPlay     -> do gdDisplay gameData' images
+                            gdLoop endTime gameData' images
 
 assert :: Show a => Eq a => a -> a -> String -> IO()
 assert expected actual msg = if expected == actual then return () else error $ concat ["\nexpected: ", (show expected), "\nactual: ", (show actual), "\ndata: ", msg]
-
 run_tests =
     do let nums = iterate (+1) 0
        mapM_ (\(x,y) -> assert 0 (brickAt nums x y) (show x ++ " , " ++ show y)) $ zip (take 50 $ drop (0*50) nums) (take 50 nums)
@@ -290,14 +253,22 @@ run_tests =
        mapM_ (\(x,y) -> assert (5+10*16) (brickAt nums x y) (show x ++ " , " ++ show y)) $ zip (take 50 $ drop (5*50) nums) (take 50 $ drop(10*50) $ nums)
        return ()
 
+---- Main
 main = withInit [InitVideo] $
     do screen <- setVideoMode windowWidth windowHeight 16 [SWSurface]
        run_tests
        setCaption "HS-Pacman" ""
        enableUnicode True
-       images <- loadImages
-       startTime <- getCPUTime
-       loop startTime defaultGameData images
+       images <- loadImages img_all
+       infiniteLoop images GSMainMenu
+       where
+         infiniteLoop images nextState
+           = case nextState of
+               GSMainMenu -> do nextState' <- mmLoop defaultMainMenuData images
+                                infiniteLoop images nextState'
+               GSPlay -> do startTime <- getCPUTime
+                            nextState' <- gdLoop startTime defaultGameData images
+                            infiniteLoop images nextState'
 
 defaultGameData :: GameData
 defaultGameData
